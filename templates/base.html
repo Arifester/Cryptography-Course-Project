@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AES S-Box Explorer (Replikasi Paper)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    gridTemplateColumns: {
+                        '17': '30px repeat(16, minmax(0, 1fr))', 
+                    },
+                    colors: {
+                        primary: '#1e1b4b', /* indigo-950 */
+                        accent: '#fbbf24', /* amber-400 */
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Fonts & Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-slate-50 font-inter text-slate-800">
+
+    <!-- Tooltip Container -->
+    <div id="floatingTooltip" class="fixed hidden z-[9999] bg-slate-900/95 backdrop-blur-sm text-white px-3 py-2 rounded shadow-2xl text-xs font-mono border border-slate-600 opacity-0 transform -translate-x-1/2 -translate-y-[120%] pointer-events-none transition-opacity duration-75 whitespace-nowrap"></div>
+
+    <!-- Tempat Konten Utama Disuntikkan -->
+    {% block content %}{% endblock %}
+
+    <!-- Injeksi Data untuk JS -->
+    <script id="candidates-data" type="application/json">
+        {{ candidates | tojson | safe }}
+    </script>
+
+    <script>
+        // Ambil data dari script tag di atas
+        try {
+            const dataElement = document.getElementById('candidates-data');
+            window.APP_DATA = JSON.parse(dataElement.textContent);
+        } catch (e) {
+            console.error("Gagal memparsing data JSON dari Flask", e);
+            window.APP_DATA = [];
+        }
+    </script>
+    
+    <!-- External JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

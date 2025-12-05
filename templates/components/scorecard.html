@@ -1,0 +1,21 @@
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    <!-- Helper Macro untuk Card Metrik -->
+    {% macro metric_card(id, title, target) %}
+    <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{{ title }}</div>
+        <div id="val_{{ id }}" class="text-lg font-mono font-bold text-indigo-700 mt-1">...</div>
+        <div class="text-[9px] text-slate-400 mt-1">Target: {{ target }}</div>
+    </div>
+    {% endmacro %}
+
+    {{ metric_card('NL', '1. Nonlinearity', 'Max (112)') }}
+    {{ metric_card('SAC', '2. SAC', '0.5') }}
+    {{ metric_card('BIC_NL', '3. BIC-NL', 'Max') }}
+    {{ metric_card('BIC_SAC', '4. BIC-SAC', '0.5') }}
+    {{ metric_card('LAP', '5. LAP', 'Min') }}
+    {{ metric_card('DAP', '6. DAP', 'Min') }}
+    {{ metric_card('DU', '7. Diff Uniformity', 'Min (4)') }}
+    {{ metric_card('AD', '8. Alg Degree', 'Max (7)') }}
+    {{ metric_card('TO', '9. Transparency', 'Min') }}
+    {{ metric_card('CI', '10. Correlation', '0') }}
+</div>

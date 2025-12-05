@@ -1,0 +1,36 @@
+<div class="bg-indigo-50/80 p-5 rounded-xl border border-indigo-100 shadow-sm">
+    <h3 class="font-bold text-sm text-indigo-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-lock"></i> Uji Coba Enkripsi & Dekripsi
+    </h3>
+    
+    <div class="space-y-4">
+        <!-- Input -->
+        <div>
+            <label class="block text-[10px] uppercase font-bold text-indigo-400 tracking-wider mb-1">1. Input Plaintext</label>
+            <input type="text" id="inputPlain" placeholder="Ketik sesuatu..." 
+                class="w-full p-2.5 text-sm border border-indigo-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono bg-white text-slate-700 shadow-sm transition-all">
+        </div>
+        
+        <!-- Ciphertext -->
+        <div>
+            <div class="flex justify-between items-end mb-1">
+                <label class="block text-[10px] uppercase font-bold text-indigo-400 tracking-wider">2. Ciphertext (Hex)</label>
+                <span class="text-[10px] text-indigo-300 flex items-center gap-1"><i class="fas fa-arrow-down"></i> Encrypt</span>
+            </div>
+            <div id="outputCipher" class="w-full p-2.5 text-sm bg-white border border-indigo-200 rounded-md font-mono text-indigo-600 break-all min-h-[42px] shadow-sm flex items-center">
+                ...
+            </div>
+        </div>
+
+        <!-- Decrypted -->
+        <div>
+            <div class="flex justify-between items-end mb-1">
+                <label class="block text-[10px] uppercase font-bold text-emerald-600 tracking-wider">3. Recovered Text</label>
+                <span class="text-[10px] text-emerald-500 flex items-center gap-1"><i class="fas fa-arrow-down"></i> Decrypt</span>
+            </div>
+            <div id="outputDecrypted" class="w-full p-2.5 text-sm bg-emerald-50 border border-emerald-200 rounded-md font-mono text-emerald-800 break-all min-h-[42px] shadow-sm flex items-center">
+                ...
+            </div>
+        </div>
+    </div>
+</div>
