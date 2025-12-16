@@ -414,18 +414,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentValue = el.textContent;
                 
                 els.tooltip.innerHTML = `
-                    <div class="max-w-xs">
+                    <div style="width: 280px;">
                         <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-600">
                             <i class="fas ${def.icon} text-indigo-400"></i>
-                            <span class="font-bold text-white">${def.name}</span>
+                            <span class="font-bold text-white text-sm">${def.name}</span>
                         </div>
-                        <p class="text-slate-300 text-[11px] leading-relaxed mb-3">${def.definition}</p>
-                        <div class="flex gap-4 text-[10px]">
-                            <div>
-                                <span class="text-slate-400">Nilai Saat Ini:</span>
+                        <p class="text-slate-300 text-[11px] leading-relaxed mb-3" style="white-space: normal;">${def.definition}</p>
+                        <div class="flex flex-wrap gap-3 text-[10px]">
+                            <div class="bg-slate-800/50 px-2 py-1 rounded">
+                                <span class="text-slate-400">Nilai:</span>
                                 <span class="text-amber-400 font-bold ml-1">${currentValue}</span>
                             </div>
-                            <div>
+                            <div class="bg-slate-800/50 px-2 py-1 rounded">
                                 <span class="text-slate-400">Target:</span>
                                 <span class="text-emerald-400 font-bold ml-1">${def.ideal}</span>
                             </div>
@@ -434,15 +434,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 
                 const rect = card.getBoundingClientRect();
-                els.tooltip.style.left = `${rect.left + rect.width / 2}px`;
+                const tooltipWidth = 300;
+                
+                // Calculate position - center above card, but keep within viewport
+                let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+                left = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
+                
+                els.tooltip.style.left = `${left}px`;
                 els.tooltip.style.top = `${rect.top - 10}px`;
+                els.tooltip.style.transform = 'translateY(-100%)';
                 els.tooltip.classList.remove('hidden', 'opacity-0');
             });
 
             card.addEventListener('mouseleave', () => {
                 tooltipTimeout = setTimeout(() => {
                     els.tooltip.classList.add('opacity-0');
-                    setTimeout(() => els.tooltip.classList.add('hidden'), 100);
+                    setTimeout(() => {
+                        els.tooltip.classList.add('hidden');
+                        els.tooltip.style.transform = '';
+                    }, 100);
                 }, 100);
             });
         });
