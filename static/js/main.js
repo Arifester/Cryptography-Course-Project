@@ -46,6 +46,71 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentData = candidatesData[0];
     let inverseSBox = [];
     let heatmapEnabled = true;
+    let tooltipTimeout = null;
+
+    // Metric Definitions for Tooltips
+    const metricDefinitions = {
+        NL: {
+            name: 'Nonlinearity (NL)',
+            definition: 'Mengukur jarak minimum antara fungsi Boolean S-box dengan semua fungsi affine. Semakin tinggi semakin tahan terhadap linear cryptanalysis.',
+            ideal: '112 (maksimum untuk 8-bit S-box)',
+            icon: 'fa-shield-alt'
+        },
+        SAC: {
+            name: 'Strict Avalanche Criterion',
+            definition: 'Jika satu bit input diubah, setiap bit output harus berubah dengan probabilitas 0.5. Mengukur difusi S-box.',
+            ideal: '0.5 (tepat)',
+            icon: 'fa-random'
+        },
+        BIC_NL: {
+            name: 'BIC-Nonlinearity',
+            definition: 'Bit Independence Criterion untuk Nonlinearity. Mengukur independensi statistik antar bit output dalam hal nonlinearity.',
+            ideal: 'Maksimum (mendekati 112)',
+            icon: 'fa-project-diagram'
+        },
+        BIC_SAC: {
+            name: 'BIC-SAC',
+            definition: 'Bit Independence Criterion untuk SAC. Setiap pasangan bit output harus independen secara statistik saat bit input berubah.',
+            ideal: '0.5',
+            icon: 'fa-wave-square'
+        },
+        LAP: {
+            name: 'Linear Approximation Probability',
+            definition: 'Probabilitas maksimum dari aproksimasi linear terbaik. Semakin rendah semakin tahan terhadap linear cryptanalysis.',
+            ideal: 'Minimum (≤ 0.0625 untuk AES)',
+            icon: 'fa-chart-bar'
+        },
+        DAP: {
+            name: 'Differential Approximation Prob.',
+            definition: 'Probabilitas maksimum dari diferensial terbaik. Semakin rendah semakin tahan terhadap differential cryptanalysis.',
+            ideal: 'Minimum (≤ 0.015625 untuk AES)',
+            icon: 'fa-bolt'
+        },
+        DU: {
+            name: 'Differential Uniformity',
+            definition: 'Nilai maksimum dalam Distribution Difference Table (DDT). Mengukur ketahanan terhadap serangan diferensial.',
+            ideal: '4 (optimal untuk 8-bit bijective S-box)',
+            icon: 'fa-equals'
+        },
+        AD: {
+            name: 'Algebraic Degree',
+            definition: 'Derajat tertinggi dari representasi ANF (Algebraic Normal Form). Semakin tinggi semakin tahan terhadap algebraic attack.',
+            ideal: '7 (maksimum untuk 8-bit)',
+            icon: 'fa-superscript'
+        },
+        TO: {
+            name: 'Transparency Order',
+            definition: 'Mengukur kerentanan terhadap DPA (Differential Power Analysis). Semakin rendah semakin aman terhadap side-channel attack.',
+            ideal: 'Minimum (mendekati 0)',
+            icon: 'fa-eye'
+        },
+        CI: {
+            name: 'Correlation Immunity',
+            definition: 'Mengukur korelasi antara output dengan subset input. Untuk S-box kriptografi yang baik, nilai 0 sudah cukup.',
+            ideal: '0 (untuk balanced S-box)',
+            icon: 'fa-lock'
+        }
+    };
 
     // 3. Helper Functions
     function generateInverseSBox(sbox) {
@@ -183,8 +248,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 div.textContent = hexVal;
                 
-                // Tooltip Events
+                // Tooltip Events - Fixed for stable display
                 div.addEventListener('mouseenter', (e) => {
+                    // Clear any pending hide timeout
+                    if (tooltipTimeout) {
+                        clearTimeout(tooltipTimeout);
+                        tooltipTimeout = null;
+                    }
+                    
                     els.tooltip.innerHTML = `
                         <div class="flex items-center gap-3">
                             <div class="text-center">
@@ -202,13 +273,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     `;
-                    els.tooltip.classList.remove('hidden');
-                    requestAnimationFrame(() => els.tooltip.classList.remove('opacity-0'));
+                    els.tooltip.style.left = `${e.clientX}px`;
+                    els.tooltip.style.top = `${e.clientY - 20}px`;
+                    els.tooltip.classList.remove('hidden', 'opacity-0');
                 });
+                
                 div.addEventListener('mouseleave', () => {
-                    els.tooltip.classList.add('opacity-0');
-                    setTimeout(() => els.tooltip.classList.add('hidden'), 150);
+                    // Add small delay before hiding to prevent flicker
+                    tooltipTimeout = setTimeout(() => {
+                        els.tooltip.classList.add('opacity-0');
+                        setTimeout(() => els.tooltip.classList.add('hidden'), 100);
+                    }, 50);
                 });
+                
                 div.addEventListener('mousemove', (e) => {
                     els.tooltip.style.left = `${e.clientX}px`;
                     els.tooltip.style.top = `${e.clientY - 20}px`; 
@@ -317,6 +394,62 @@ document.addEventListener('DOMContentLoaded', () => {
             updateUI(currentIdx + 1);
         }
     });
+
+    // Setup Metric Card Tooltips
+    function setupMetricTooltips() {
+        Object.entries(els.metrics).forEach(([key, el]) => {
+            if (!el) return;
+            const card = el.closest('.group');
+            if (!card) return;
+            
+            const def = metricDefinitions[key];
+            if (!def) return;
+
+            card.addEventListener('mouseenter', (e) => {
+                if (tooltipTimeout) {
+                    clearTimeout(tooltipTimeout);
+                    tooltipTimeout = null;
+                }
+
+                const currentValue = el.textContent;
+                
+                els.tooltip.innerHTML = `
+                    <div class="max-w-xs">
+                        <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-600">
+                            <i class="fas ${def.icon} text-indigo-400"></i>
+                            <span class="font-bold text-white">${def.name}</span>
+                        </div>
+                        <p class="text-slate-300 text-[11px] leading-relaxed mb-3">${def.definition}</p>
+                        <div class="flex gap-4 text-[10px]">
+                            <div>
+                                <span class="text-slate-400">Nilai Saat Ini:</span>
+                                <span class="text-amber-400 font-bold ml-1">${currentValue}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400">Target:</span>
+                                <span class="text-emerald-400 font-bold ml-1">${def.ideal}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const rect = card.getBoundingClientRect();
+                els.tooltip.style.left = `${rect.left + rect.width / 2}px`;
+                els.tooltip.style.top = `${rect.top - 10}px`;
+                els.tooltip.classList.remove('hidden', 'opacity-0');
+            });
+
+            card.addEventListener('mouseleave', () => {
+                tooltipTimeout = setTimeout(() => {
+                    els.tooltip.classList.add('opacity-0');
+                    setTimeout(() => els.tooltip.classList.add('hidden'), 100);
+                }, 100);
+            });
+        });
+    }
+
+    // Initialize metric tooltips
+    setupMetricTooltips();
 
     // Auto-select K44 if exists, otherwise first item
     const k44Idx = candidatesData.findIndex(c => c.id === 'K44');
