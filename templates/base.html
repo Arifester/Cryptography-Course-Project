@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AES S-Box Explorer (Replikasi Paper)</title>
+    <title>AES S-Box Explorer | Kriptografi Lanjutan</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,28 +12,103 @@
             theme: {
                 extend: {
                     gridTemplateColumns: {
-                        '17': '30px repeat(16, minmax(0, 1fr))', 
+                        '17': '32px repeat(16, minmax(0, 1fr))', 
                     },
                     colors: {
-                        primary: '#1e1b4b', /* indigo-950 */
-                        accent: '#fbbf24', /* amber-400 */
-                    }
+                        primary: '#0f172a',
+                        secondary: '#1e293b',
+                        accent: '#6366f1',
+                        'accent-light': '#818cf8',
+                        gold: '#f59e0b',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                    },
+                    fontFamily: {
+                        'display': ['Inter', 'system-ui', 'sans-serif'],
+                        'mono': ['Fira Code', 'Monaco', 'monospace'],
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'scale-in': 'scaleIn 0.3s ease-out',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        scaleIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.9)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(99, 102, 241, 0.5)' },
+                            '100%': { boxShadow: '0 0 20px rgba(99, 102, 241, 0.8)' },
+                        },
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                        'grid-pattern': 'linear-gradient(to right, rgba(99, 102, 241, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(99, 102, 241, 0.1) 1px, transparent 1px)',
+                    },
                 }
             }
         }
     </script>
 
     <!-- Fonts & Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="bg-slate-50 font-inter text-slate-800">
+<body class="min-h-screen font-display text-slate-100 overflow-x-hidden">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 -z-20"></div>
+    <div class="fixed inset-0 bg-grid-pattern bg-[size:40px_40px] opacity-30 -z-10"></div>
+    <div class="fixed top-0 right-0 w-[600px] h-[600px] bg-gradient-radial from-indigo-500/20 via-transparent to-transparent blur-3xl -z-10 animate-pulse-slow"></div>
+    <div class="fixed bottom-0 left-0 w-[500px] h-[500px] bg-gradient-radial from-purple-500/15 via-transparent to-transparent blur-3xl -z-10 animate-pulse-slow" style="animation-delay: 1s;"></div>
+
+    <!-- Floating Particles -->
+    <div class="particles-container fixed inset-0 pointer-events-none -z-5 overflow-hidden">
+        <div class="particle particle-1"></div>
+        <div class="particle particle-2"></div>
+        <div class="particle particle-3"></div>
+        <div class="particle particle-4"></div>
+    </div>
 
     <!-- Tooltip Container -->
-    <div id="floatingTooltip" class="fixed hidden z-[9999] bg-slate-900/95 backdrop-blur-sm text-white px-3 py-2 rounded shadow-2xl text-xs font-mono border border-slate-600 opacity-0 transform -translate-x-1/2 -translate-y-[120%] pointer-events-none transition-opacity duration-75 whitespace-nowrap"></div>
+    <div id="floatingTooltip" class="fixed hidden z-[9999] bg-slate-900/95 backdrop-blur-xl text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-mono border border-indigo-500/30 opacity-0 transform -translate-x-1/2 -translate-y-[120%] pointer-events-none transition-all duration-150 whitespace-nowrap">
+        <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-r border-b border-indigo-500/30"></div>
+    </div>
 
-    <!-- Tempat Konten Utama Disuntikkan -->
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-950/90 z-[10000] flex items-center justify-center transition-opacity duration-500">
+        <div class="text-center">
+            <div class="relative w-20 h-20 mx-auto mb-4">
+                <div class="absolute inset-0 border-4 border-indigo-500/30 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-transparent border-t-indigo-500 rounded-full animate-spin"></div>
+                <i class="fas fa-shield-halved text-2xl text-indigo-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
+            </div>
+            <p class="text-indigo-300 font-medium animate-pulse">Memuat S-Box Data...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
     {% block content %}{% endblock %}
 
     <!-- Injeksi Data untuk JS -->
@@ -42,7 +117,7 @@
     </script>
 
     <script>
-        // Ambil data dari script tag di atas
+        // Parse data
         try {
             const dataElement = document.getElementById('candidates-data');
             window.APP_DATA = JSON.parse(dataElement.textContent);

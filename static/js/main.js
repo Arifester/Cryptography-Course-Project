@@ -1,6 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Data Loading
     const candidatesData = window.APP_DATA || [];
+    
+    // Hide loading overlay with animation
+    setTimeout(() => {
+        const loader = document.getElementById('loadingOverlay');
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
+    }, 800);
+
     if (candidatesData.length === 0) {
         console.error("No data loaded from Flask");
         return;
@@ -17,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputPlain: document.getElementById('inputPlain'),
         outCipher: document.getElementById('outputCipher'),
         outDec: document.getElementById('outputDecrypted'),
+        toggleHeatmap: document.getElementById('toggleHeatmap'),
         // Metrics Map
         metrics: {
             NL: document.getElementById('val_NL'),
@@ -34,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentData = candidatesData[0];
     let inverseSBox = [];
+    let heatmapEnabled = true;
 
     // 3. Helper Functions
     function generateInverseSBox(sbox) {
@@ -42,31 +54,84 @@ document.addEventListener('DOMContentLoaded', () => {
         return inv;
     }
 
+    function getHeatmapColor(value) {
+        // Create gradient from cyan (low) to red (high)
+        const hue = 180 - (value / 255) * 180; // 180 (cyan) to 0 (red)
+        const saturation = 70 + (value / 255) * 30; // 70% to 100%
+        const lightness = 45 + (value / 255) * 10; // 45% to 55%
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+
+    function animateValue(element, value, duration = 300) {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(10px)';
+        setTimeout(() => {
+            element.textContent = value;
+            element.style.transition = 'all 0.3s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, 50);
+    }
+
     // 4. Render Functions
     function renderMetrics(metrics) {
         if(!metrics) return;
-        // Helper untuk format angka
         const fmt = (val, fixed=4) => typeof val === 'number' ? val.toFixed(fixed) : val;
         
-        els.metrics.NL.textContent = metrics.NL;
-        els.metrics.SAC.textContent = fmt(metrics.SAC, 5);
-        els.metrics.BIC_NL.textContent = metrics.BIC_NL;
-        els.metrics.BIC_SAC.textContent = fmt(metrics.BIC_SAC, 5);
-        els.metrics.LAP.textContent = fmt(metrics.LAP);
-        els.metrics.DAP.textContent = fmt(metrics.DAP);
-        els.metrics.DU.textContent = metrics.DU;
-        els.metrics.AD.textContent = metrics.AD;
-        els.metrics.TO.textContent = metrics.TO;
-        els.metrics.CI.textContent = metrics.CI;
+        // Animate each metric
+        const metricConfigs = {
+            NL: { value: metrics.NL, target: 112, max: 112 },
+            SAC: { value: fmt(metrics.SAC, 5), target: 0.5, max: 1, isClose: Math.abs(metrics.SAC - 0.5) < 0.01 },
+            BIC_NL: { value: metrics.BIC_NL, target: 112, max: 112 },
+            BIC_SAC: { value: fmt(metrics.BIC_SAC, 5), target: 0.5, max: 1, isClose: Math.abs(metrics.BIC_SAC - 0.5) < 0.01 },
+            LAP: { value: fmt(metrics.LAP), target: 0.0625, max: 0.5, inverse: true },
+            DAP: { value: fmt(metrics.DAP), target: 0.015625, max: 0.5, inverse: true },
+            DU: { value: metrics.DU, target: 4, max: 256, inverse: true },
+            AD: { value: metrics.AD, target: 7, max: 7 },
+            TO: { value: metrics.TO, target: 0, max: 10, inverse: true },
+            CI: { value: metrics.CI, target: 0, max: 5, isZeroGood: true }
+        };
+
+        Object.entries(metricConfigs).forEach(([key, config]) => {
+            const el = els.metrics[key];
+            if (el) {
+                animateValue(el, config.value);
+                
+                // Update progress bar
+                const card = el.closest('.group');
+                const progressBar = card?.querySelector('.progress-bar');
+                if (progressBar) {
+                    let progress;
+                    if (config.inverse) {
+                        progress = Math.max(0, (1 - parseFloat(config.value) / config.max)) * 100;
+                    } else if (config.isZeroGood) {
+                        progress = config.value === 0 ? 100 : Math.max(0, (1 - config.value / config.max)) * 100;
+                    } else if (config.isClose !== undefined) {
+                        progress = config.isClose ? 100 : 50;
+                    } else {
+                        progress = (parseFloat(config.value) / config.max) * 100;
+                    }
+                    setTimeout(() => {
+                        progressBar.style.width = `${Math.min(100, progress)}%`;
+                    }, 100);
+                }
+            }
+        });
     }
 
     function renderMatrix(matrix) {
         els.matrixGrid.innerHTML = '';
-        matrix.forEach(row => {
-            row.forEach(bit => {
+        matrix.forEach((row, rowIdx) => {
+            row.forEach((bit, colIdx) => {
                 const div = document.createElement('div');
-                div.className = `w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center text-xs font-mono rounded transition-all ${bit ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-300'}`;
+                const isActive = bit === 1;
+                div.className = `matrix-cell w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center text-xs font-mono rounded-lg cursor-default ${
+                    isActive 
+                        ? 'matrix-cell-active text-white font-bold' 
+                        : 'matrix-cell-inactive text-slate-500'
+                }`;
                 div.textContent = bit;
+                div.style.animationDelay = `${(rowIdx * 8 + colIdx) * 20}ms`;
                 els.matrixGrid.appendChild(div);
             });
         });
@@ -74,22 +139,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSbox(sbox) {
         els.sboxGrid.innerHTML = '';
-        // Header Pojok
-        els.sboxGrid.appendChild(Object.assign(document.createElement('div'), {className: 'bg-slate-200'}));
         
-        // Header Kolom (0-F)
+        // Header Corner
+        const corner = document.createElement('div');
+        corner.className = 'sbox-header rounded-tl-lg flex items-center justify-center';
+        corner.innerHTML = '<i class="fas fa-hashtag text-[10px] text-slate-500"></i>';
+        els.sboxGrid.appendChild(corner);
+        
+        // Header Columns (0-F)
         for(let i=0; i<16; i++) {
             const head = document.createElement('div');
-            head.className = "bg-slate-200 text-slate-500 font-bold flex items-center justify-center py-1";
+            head.className = `sbox-header flex items-center justify-center py-2 ${i === 15 ? 'rounded-tr-lg' : ''}`;
             head.textContent = i.toString(16).toUpperCase();
             els.sboxGrid.appendChild(head);
         }
 
-        // Baris Data
+        // Data Rows
         for(let row=0; row<16; row++) {
-            // Header Baris
+            // Row Header
             const rowHead = document.createElement('div');
-            rowHead.className = "bg-slate-200 text-slate-500 font-bold flex items-center justify-center";
+            rowHead.className = `sbox-header flex items-center justify-center ${row === 15 ? 'rounded-bl-lg' : ''}`;
             rowHead.textContent = row.toString(16).toUpperCase();
             els.sboxGrid.appendChild(rowHead);
 
@@ -100,22 +169,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hexVal = val.toString(16).toUpperCase().padStart(2, '0');
                 
                 const div = document.createElement('div');
-                div.className = "h-7 sm:h-8 flex items-center justify-center font-mono bg-white text-slate-600 hover:bg-amber-300 hover:text-amber-900 cursor-crosshair transition-colors duration-75";
+                const isLastCell = row === 15 && col === 15;
+                div.className = `sbox-cell h-8 sm:h-9 flex items-center justify-center font-mono cursor-crosshair ${isLastCell ? 'rounded-br-lg' : ''}`;
+                
+                // Apply heatmap color
+                if (heatmapEnabled) {
+                    div.style.backgroundColor = getHeatmapColor(val);
+                    div.style.color = val > 128 ? '#fff' : '#1e293b';
+                } else {
+                    div.style.backgroundColor = 'rgba(30, 41, 59, 0.6)';
+                    div.style.color = '#e2e8f0';
+                }
+                
                 div.textContent = hexVal;
                 
                 // Tooltip Events
-                div.addEventListener('mouseenter', () => {
-                    els.tooltip.innerHTML = `<span class="text-slate-400">Idx:</span> <span class="text-amber-400 font-bold">0x${idx.toString(16).toUpperCase().padStart(2,'0')}</span> <span class="text-slate-500 mx-1">→</span> <span class="text-slate-400">Val:</span> <span class="text-emerald-400 font-bold">0x${hexVal}</span>`;
+                div.addEventListener('mouseenter', (e) => {
+                    els.tooltip.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="text-center">
+                                <div class="text-[9px] text-slate-400 mb-0.5">Index</div>
+                                <div class="text-amber-400 font-bold">0x${idx.toString(16).toUpperCase().padStart(2,'0')}</div>
+                            </div>
+                            <i class="fas fa-arrow-right text-slate-500 text-[10px]"></i>
+                            <div class="text-center">
+                                <div class="text-[9px] text-slate-400 mb-0.5">Value</div>
+                                <div class="text-emerald-400 font-bold">0x${hexVal}</div>
+                            </div>
+                            <div class="border-l border-slate-600 pl-3 ml-1">
+                                <div class="text-[9px] text-slate-400 mb-0.5">Decimal</div>
+                                <div class="text-cyan-400 font-bold">${val}</div>
+                            </div>
+                        </div>
+                    `;
                     els.tooltip.classList.remove('hidden');
                     requestAnimationFrame(() => els.tooltip.classList.remove('opacity-0'));
                 });
                 div.addEventListener('mouseleave', () => {
                     els.tooltip.classList.add('opacity-0');
-                    els.tooltip.classList.add('hidden');
+                    setTimeout(() => els.tooltip.classList.add('hidden'), 150);
                 });
                 div.addEventListener('mousemove', (e) => {
                     els.tooltip.style.left = `${e.clientX}px`;
-                    els.tooltip.style.top = `${e.clientY - 15}px`; 
+                    els.tooltip.style.top = `${e.clientY - 20}px`; 
                 });
 
                 els.sboxGrid.appendChild(div);
@@ -126,33 +222,46 @@ document.addEventListener('DOMContentLoaded', () => {
     function doCrypto() {
         const txt = els.inputPlain.value;
         if(!txt) { 
-            els.outCipher.textContent = '...'; 
-            els.outDec.textContent = '...'; 
+            els.outCipher.innerHTML = '<span class="text-slate-500 italic">Hasil enkripsi akan muncul di sini...</span>'; 
+            els.outDec.innerHTML = '<span class="text-slate-500 italic">Hasil dekripsi akan muncul di sini...</span>'; 
             return; 
         }
         
         // Encrypt
         const ciph = txt.split('').map(c => currentData.sbox[c.charCodeAt(0) % 256]);
-        els.outCipher.textContent = ciph.map(b => b.toString(16).toUpperCase().padStart(2,'0')).join(' ');
+        const cipherHex = ciph.map(b => `<span class="inline-block px-1 py-0.5 bg-amber-500/10 rounded mx-0.5">${b.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('');
+        els.outCipher.innerHTML = cipherHex;
         
         // Decrypt
         const dec = ciph.map(b => String.fromCharCode(inverseSBox[b])).join('');
-        els.outDec.textContent = dec;
+        els.outDec.innerHTML = `<span class="text-emerald-300">${dec}</span>`;
     }
 
     function updateUI(idx) {
         currentData = candidatesData[idx];
         inverseSBox = generateInverseSBox(currentData.sbox);
         
-        // Update Header
-        els.name.textContent = currentData.name;
+        // Update Header with animation
+        els.name.style.opacity = '0';
+        setTimeout(() => {
+            els.name.textContent = currentData.name;
+            els.name.style.transition = 'opacity 0.4s ease';
+            els.name.style.opacity = '1';
+        }, 100);
         
         // Badge Style
-        let badgeClass = "bg-slate-200 text-slate-600";
-        if(currentData.type === 'proposed') badgeClass = "bg-emerald-100 text-emerald-700 border border-emerald-200";
-        if(currentData.type === 'generated') badgeClass = "bg-blue-50 text-blue-600";
-        els.type.className = `px-3 py-1 text-xs font-bold rounded-full border border-transparent ${badgeClass}`;
-        els.type.textContent = currentData.id;
+        let badgeClass = "badge-generated";
+        let badgeIcon = "fa-cube";
+        if(currentData.type === 'proposed') {
+            badgeClass = "badge-proposed";
+            badgeIcon = "fa-star";
+        } else if(currentData.type === 'standard') {
+            badgeClass = "badge-standard";
+            badgeIcon = "fa-certificate";
+        }
+        
+        els.type.className = `inline-flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-full border backdrop-blur-sm ${badgeClass}`;
+        els.type.innerHTML = `<i class="fas ${badgeIcon} text-xs"></i> ${currentData.id}`;
 
         // Render All Components
         renderMetrics(currentData.metrics);
@@ -162,13 +271,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Initialization
-    // Populate Dropdown
-    const groupRef = document.createElement('optgroup'); groupRef.label = "Referensi Utama";
-    const groupGen = document.createElement('optgroup'); groupGen.label = "Hasil Eksplorasi";
+    // Populate Dropdown with styled options
+    const groupRef = document.createElement('optgroup'); 
+    groupRef.label = "📚 Referensi Utama";
+    const groupGen = document.createElement('optgroup'); 
+    groupGen.label = "🔬 Hasil Eksplorasi";
 
     candidatesData.forEach((d, i) => {
         const opt = document.createElement('option');
-        opt.value = i; opt.textContent = d.name;
+        opt.value = i; 
+        opt.textContent = `${d.id} - ${d.name}`;
         if(d.type === 'standard' || d.type === 'proposed') groupRef.appendChild(opt);
         else groupGen.appendChild(opt);
     });
@@ -176,10 +288,37 @@ document.addEventListener('DOMContentLoaded', () => {
     els.selector.appendChild(groupGen);
 
     // Event Listeners
-    els.selector.addEventListener('change', (e) => updateUI(e.target.value));
+    els.selector.addEventListener('change', (e) => {
+        updateUI(e.target.value);
+    });
+    
     els.inputPlain.addEventListener('input', doCrypto);
+    
+    // Heatmap Toggle
+    if (els.toggleHeatmap) {
+        els.toggleHeatmap.addEventListener('click', () => {
+            heatmapEnabled = !heatmapEnabled;
+            els.toggleHeatmap.classList.toggle('bg-amber-500/20', heatmapEnabled);
+            els.toggleHeatmap.classList.toggle('border-amber-500/50', heatmapEnabled);
+            renderSbox(currentData.sbox);
+        });
+    }
 
-    // Auto-select K44 if exists
+    // Keyboard shortcut for navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        
+        const currentIdx = parseInt(els.selector.value);
+        if (e.key === 'ArrowLeft' && currentIdx > 0) {
+            els.selector.value = currentIdx - 1;
+            updateUI(currentIdx - 1);
+        } else if (e.key === 'ArrowRight' && currentIdx < candidatesData.length - 1) {
+            els.selector.value = currentIdx + 1;
+            updateUI(currentIdx + 1);
+        }
+    });
+
+    // Auto-select K44 if exists, otherwise first item
     const k44Idx = candidatesData.findIndex(c => c.id === 'K44');
     if(k44Idx !== -1) {
         els.selector.value = k44Idx;

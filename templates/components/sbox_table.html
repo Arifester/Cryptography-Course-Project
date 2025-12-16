@@ -1,15 +1,57 @@
-<div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-sm text-slate-700 flex items-center gap-2">
-            <i class="fas fa-table text-indigo-500"></i> Generated S-Box Table
+<!-- Enhanced S-Box Visualization Table -->
+<div class="group relative overflow-hidden bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition-all duration-300 h-full animate-scale-in" style="animation-delay: 0.15s;">
+    <!-- Background Effects -->
+    <div class="absolute top-0 left-0 w-64 h-64 bg-gradient-radial from-purple-500/10 via-transparent to-transparent blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+    
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <h3 class="font-bold text-white flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                <i class="fas fa-table-cells text-white"></i>
+            </div>
+            <div>
+                <span class="block">S-Box Table</span>
+                <span class="text-xs text-slate-400 font-normal">16×16 Substitution Matrix (256 entries)</span>
+            </div>
         </h3>
-        <div class="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-100">
-            <i class="fas fa-mouse-pointer mr-1"></i>Hover cell for details
+        <div class="flex items-center gap-3">
+            <!-- Heatmap Toggle -->
+            <button id="toggleHeatmap" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 hover:bg-slate-600/50 border border-slate-600/50 rounded-lg transition-all text-xs">
+                <i class="fas fa-fire-flame-curved text-orange-400"></i>
+                <span class="text-slate-300">Heatmap</span>
+            </button>
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <i class="fas fa-mouse-pointer text-amber-400 text-xs"></i>
+                <span class="text-[10px] text-amber-300 font-medium">Hover for details</span>
+            </div>
         </div>
     </div>
     
-    <!-- Compact Grid -->
-    <div id="sboxGrid" class="grid grid-cols-17 gap-[1px] bg-slate-300 border border-slate-300 text-[10px]">
-        <!-- JS Generated -->
+    <!-- S-Box Grid -->
+    <div class="relative overflow-x-auto custom-scrollbar">
+        <div id="sboxGrid" class="grid grid-cols-17 gap-[2px] bg-slate-700/30 p-1 rounded-xl text-[11px] min-w-[600px]">
+            <!-- JS Generated -->
+        </div>
+    </div>
+    
+    <!-- Color Legend -->
+    <div class="flex flex-wrap items-center justify-center gap-4 mt-5 pt-4 border-t border-white/5">
+        <span class="text-xs text-slate-500">Value Range:</span>
+        <div class="flex items-center gap-1">
+            <div class="w-4 h-4 rounded bg-cyan-500/80"></div>
+            <span class="text-[10px] text-slate-400">0x00</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <div class="w-4 h-4 rounded bg-emerald-500/80"></div>
+            <span class="text-[10px] text-slate-400">0x40</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <div class="w-4 h-4 rounded bg-amber-500/80"></div>
+            <span class="text-[10px] text-slate-400">0x80</span>
+        </div>
+        <div class="flex items-center gap-1">
+            <div class="w-4 h-4 rounded bg-rose-500/80"></div>
+            <span class="text-[10px] text-slate-400">0xFF</span>
+        </div>
     </div>
 </div>

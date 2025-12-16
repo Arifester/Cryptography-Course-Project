@@ -1,18 +1,42 @@
-<nav class="bg-primary text-white shadow-lg sticky top-0 z-50">
+<!-- Modern Glassmorphism Navbar -->
+<nav class="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-white/10 shadow-lg shadow-black/20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-            <div class="flex items-center gap-3">
-                <i class="fas fa-shield-alt text-2xl text-accent"></i>
+        <div class="flex items-center justify-between h-20">
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-4 group">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                    <div class="relative w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-transform">
+                        <i class="fas fa-shield-halved text-xl text-white"></i>
+                    </div>
+                </div>
                 <div>
-                    <h1 class="font-bold text-lg leading-tight">AES S-Box Explorer</h1>
-                    <p class="text-[10px] text-indigo-300">Replikasi Paper Alamsyah et al.</p>
+                    <h1 class="font-bold text-xl bg-gradient-to-r from-white to-indigo-200 bg-clip-text text-transparent tracking-tight">
+                        AES S-Box Explorer
+                    </h1>
+                    <p class="text-xs text-slate-400 flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                        Replikasi Paper Alamsyah et al.
+                    </p>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <label class="text-xs text-indigo-200 hidden sm:block">Pilih Matriks Affine:</label>
-                <select id="matrixSelector" class="bg-indigo-900 text-white text-sm border border-indigo-600 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer min-w-[200px]">
-                    <!-- Diisi JS -->
-                </select>
+
+            <!-- Matrix Selector -->
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
+                    <i class="fas fa-microchip text-indigo-400 text-sm"></i>
+                    <span class="text-xs text-slate-400">Affine Matrix</span>
+                </div>
+                <div class="relative group">
+                    <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                    <select id="matrixSelector" 
+                        class="relative appearance-none bg-slate-800/90 text-white text-sm font-medium border border-white/20 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer min-w-[220px] hover:bg-slate-700/90 transition-all shadow-lg">
+                        <!-- Diisi JS -->
+                    </select>
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <i class="fas fa-chevron-down text-indigo-400 text-xs"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
