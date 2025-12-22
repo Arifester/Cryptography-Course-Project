@@ -16,9 +16,51 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // ============================================
+    // TAB SWITCHING FUNCTIONALITY
+    // ============================================
+    
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.getAttribute('data-tab');
+            
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+            
+            // Add active class to clicked button and show content
+            button.classList.add('active');
+            const targetContent = document.getElementById(`tab-${targetTab}`);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+                targetContent.classList.add('active');
+            }
+            
+            // If switching to comparison tab, render comparison
+            if (targetTab === 'comparison') {
+                renderMatrixComparison();
+            }
+        });
+    });
+
     // 2. DOM Elements
     const els = {
-        selector: document.getElementById('matrixSelector'),
+        // Old selector (removed from navbar, keep for backward compatibility)
+        selector: null,
+        encryptSelector: document.getElementById('encryptMatrixSelector'),
+        explorationSelector: document.getElementById('explorationMatrixSelector'),
+        comparisonSelector1: document.getElementById('comparisonMatrix1Selector'),
+        comparisonSelector2: document.getElementById('comparisonMatrix2Selector'),
+        explorationContent: document.getElementById('explorationContent'),
+        comparisonContent: document.getElementById('comparisonContent'),
+        comparisonCard1: document.getElementById('comparisonCard1'),
+        comparisonCard2: document.getElementById('comparisonCard2'),
         name: document.getElementById('matrixName'),
         type: document.getElementById('matrixType'),
         matrixGrid: document.getElementById('matrixGrid'),
@@ -27,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputPlain: document.getElementById('inputPlain'),
         outCipher: document.getElementById('outputCipher'),
         outDec: document.getElementById('outputDecrypted'),
+        downloadCipherBtn: document.getElementById('downloadCipherBtn'),
         toggleHeatmap: document.getElementById('toggleHeatmap'),
         // Metrics Map
         metrics: {
@@ -44,6 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let currentData = candidatesData[0];
+    let selectedEncryptData = candidatesData[0]; // For encryption tab
+    let selectedCompareData1 = candidatesData[0]; // For comparison tab - first matrix
+    let selectedCompareData2 = candidatesData[1] || candidatesData[0]; // For comparison tab - second matrix
     let inverseSBox = [];
     let heatmapEnabled = true;
     let tooltipTimeout = null;
@@ -304,13 +350,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return; 
         }
         
+        // Use selected encryption matrix
+        const encryptSbox = selectedEncryptData.sbox;
+        const encryptInverse = generateInverseSBox(encryptSbox);
+        
         // Encrypt
-        const ciph = txt.split('').map(c => currentData.sbox[c.charCodeAt(0) % 256]);
+        const ciph = txt.split('').map(c => encryptSbox[c.charCodeAt(0) % 256]);
         const cipherHex = ciph.map(b => `<span class="inline-block px-1 py-0.5 bg-amber-500/10 rounded mx-0.5">${b.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('');
         els.outCipher.innerHTML = cipherHex;
         
         // Decrypt
-        const dec = ciph.map(b => String.fromCharCode(inverseSBox[b])).join('');
+        const dec = ciph.map(b => String.fromCharCode(encryptInverse[b])).join('');
         els.outDec.innerHTML = `<span class="text-emerald-300">${dec}</span>`;
     }
 
@@ -348,28 +398,102 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Initialization
-    // Populate Dropdown with styled options
-    const groupRef = document.createElement('optgroup'); 
-    groupRef.label = "📚 Referensi Utama";
-    const groupGen = document.createElement('optgroup'); 
-    groupGen.label = "🔬 Hasil Eksplorasi";
+    // Helper function to populate selectors
+    function populateSelector(selectorElement, onChange) {
+        if (!selectorElement) return;
+        
+        const groupRef = document.createElement('optgroup'); 
+        groupRef.label = "📚 Referensi Utama";
+        const groupGen = document.createElement('optgroup'); 
+        groupGen.label = "🔬 Hasil Eksplorasi";
 
-    candidatesData.forEach((d, i) => {
-        const opt = document.createElement('option');
-        opt.value = i; 
-        opt.textContent = `${d.id} - ${d.name}`;
-        if(d.type === 'standard' || d.type === 'proposed') groupRef.appendChild(opt);
-        else groupGen.appendChild(opt);
+        candidatesData.forEach((d, i) => {
+            const opt = document.createElement('option');
+            opt.value = i; 
+            opt.textContent = `${d.id} - ${d.name}`;
+            if(d.type === 'standard' || d.type === 'proposed') groupRef.appendChild(opt);
+            else groupGen.appendChild(opt);
+        });
+        
+        selectorElement.appendChild(groupRef);
+        selectorElement.appendChild(groupGen);
+        selectorElement.addEventListener('change', onChange);
+    }
+
+    // Populate Exploration Matrix Selector
+    populateSelector(els.explorationSelector, (e) => {
+        const selectedIdx = +e.target.value;
+        currentData = candidatesData[selectedIdx];
+        
+        // Show the content container and update UI
+        els.explorationContent.style.display = 'block';
+        updateUI(selectedIdx);
     });
-    els.selector.appendChild(groupRef);
-    els.selector.appendChild(groupGen);
+
+    // Populate Comparison Matrix Selectors (Dual)
+    populateSelector(els.comparisonSelector1, (e) => {
+        const selectedIdx = +e.target.value;
+        selectedCompareData1 = candidatesData[selectedIdx];
+        
+        // Show the content container and render comparison
+        els.comparisonContent.style.display = 'block';
+        renderMatrixComparison();
+    });
+
+    populateSelector(els.comparisonSelector2, (e) => {
+        const selectedIdx = +e.target.value;
+        selectedCompareData2 = candidatesData[selectedIdx];
+        
+        // Show the content container and render comparison
+        els.comparisonContent.style.display = 'block';
+        renderMatrixComparison();
+    });
+
+    // Populate Encryption Matrix Selector
+    if (els.encryptSelector) {
+        populateSelector(els.encryptSelector, (e) => {
+            selectedEncryptData = candidatesData[+e.target.value];
+            // Re-run crypto with new matrix
+            if (els.inputPlain) {
+                doCrypto();
+            }
+        });
+    }
 
     // Event Listeners
-    els.selector.addEventListener('change', (e) => {
-        updateUI(e.target.value);
-    });
-    
-    els.inputPlain.addEventListener('input', doCrypto);
+    if (els.inputPlain) {
+        els.inputPlain.addEventListener('input', doCrypto);
+    }
+
+    // Download Cipher Button
+    if (els.downloadCipherBtn) {
+        els.downloadCipherBtn.addEventListener('click', () => {
+            const cipherText = els.outCipher.textContent;
+            if (cipherText && cipherText !== 'Hasil enkripsi akan muncul di sini...') {
+                // Extract hex values only (remove HTML tags)
+                const hexValues = els.outCipher.innerText;
+                
+                // Create blob and download
+                const blob = new Blob([hexValues], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `cipher_${new Date().getTime()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Show visual feedback
+                els.downloadCipherBtn.innerHTML = '<i class="fas fa-check text-xs"></i> Downloaded';
+                els.downloadCipherBtn.classList.add('bg-emerald-500/20', 'border-emerald-500/50');
+                setTimeout(() => {
+                    els.downloadCipherBtn.innerHTML = '<i class="fas fa-download text-xs"></i> Download';
+                    els.downloadCipherBtn.classList.remove('bg-emerald-500/20', 'border-emerald-500/50');
+                }, 2000);
+            }
+        });
+    }
     
     // Heatmap Toggle
     if (els.toggleHeatmap) {
@@ -381,17 +505,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Keyboard shortcut for navigation
+    // Keyboard shortcut for navigation (works with current tab's selector)
     document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
         
-        const currentIdx = parseInt(els.selector.value);
-        if (e.key === 'ArrowLeft' && currentIdx > 0) {
-            els.selector.value = currentIdx - 1;
-            updateUI(currentIdx - 1);
-        } else if (e.key === 'ArrowRight' && currentIdx < candidatesData.length - 1) {
-            els.selector.value = currentIdx + 1;
-            updateUI(currentIdx + 1);
+        // Get the active selector based on current tab
+        let activeSelector = null;
+        const activeTab = document.querySelector('.tab-content.active');
+        
+        if (activeTab && activeTab.id === 'tab-exploration' && els.explorationSelector) {
+            activeSelector = els.explorationSelector;
+        } else if (activeTab && activeTab.id === 'tab-comparison' && els.comparisonSelector) {
+            activeSelector = els.comparisonSelector;
+        } else if (activeTab && activeTab.id === 'tab-encryption' && els.encryptSelector) {
+            activeSelector = els.encryptSelector;
+        }
+        
+        if (activeSelector) {
+            const currentIdx = parseInt(activeSelector.value);
+            if (e.key === 'ArrowLeft' && currentIdx > 0) {
+                activeSelector.value = currentIdx - 1;
+                activeSelector.dispatchEvent(new Event('change'));
+            } else if (e.key === 'ArrowRight' && currentIdx < candidatesData.length - 1) {
+                activeSelector.value = currentIdx + 1;
+                activeSelector.dispatchEvent(new Event('change'));
+            }
         }
     });
 
@@ -461,12 +599,328 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize metric tooltips
     setupMetricTooltips();
 
+    // ============================================
+    // MATRIX COMPARISON FUNCTIONALITY
+    // ============================================
+    
+    // ============================================
+    // MATRIX COMPARISON FUNCTIONALITY
+    // ============================================
+    
+    function renderMatrixComparison() {
+        // Render first comparison card
+        renderComparisonCard(els.comparisonCard1, selectedCompareData1, 'blue');
+        // Render second comparison card
+        renderComparisonCard(els.comparisonCard2, selectedCompareData2, 'purple');
+    }
+
+    function renderComparisonCard(cardContainer, candidate, colorScheme) {
+        if (!cardContainer || !candidate) return;
+        
+        const colorClasses = {
+            blue: 'from-blue-500 to-cyan-500',
+            purple: 'from-purple-500 to-pink-500'
+        };
+        
+        cardContainer.innerHTML = '';
+        
+        // Header
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between mb-6 pb-4 border-b border-slate-700';
+        header.innerHTML = `
+            <div>
+                <h4 class="text-2xl font-bold text-white">${candidate.name}</h4>
+                <p class="text-sm text-slate-400 mt-1">${candidate.id}</p>
+            </div>
+            <span class="px-4 py-2 bg-gradient-to-r ${colorClasses[colorScheme]} bg-opacity-20 text-white text-xs font-semibold rounded-full border border-${colorScheme === 'blue' ? 'blue' : 'purple'}-500/30">
+                ${candidate.type}
+            </span>
+        `;
+        cardContainer.appendChild(header);
+        
+        // Matrix Grid (8x8)
+        const matrixSection = document.createElement('div');
+        matrixSection.className = 'mb-6';
+        
+        const matrixLabel = document.createElement('p');
+        matrixLabel.className = 'text-xs font-bold text-slate-300 mb-3 uppercase tracking-wide';
+        matrixLabel.textContent = 'Affine Matrix (8×8)';
+        matrixSection.appendChild(matrixLabel);
+        
+        const matrixGrid = document.createElement('div');
+        matrixGrid.className = 'grid grid-cols-8 gap-1.5 p-4 bg-slate-800/30 rounded-lg';
+        
+        candidate.matrix.forEach((row) => {
+            row.forEach((bit) => {
+                const cell = document.createElement('div');
+                cell.className = `w-8 h-8 flex items-center justify-center text-sm font-mono rounded font-bold transition-all ${
+                    bit === 1 
+                        ? `bg-gradient-to-br ${colorClasses[colorScheme]} text-white shadow-lg` 
+                        : 'bg-slate-900/50 text-slate-500 border border-slate-700'
+                }`;
+                cell.textContent = bit;
+                matrixGrid.appendChild(cell);
+            });
+        });
+        
+        matrixSection.appendChild(matrixGrid);
+        cardContainer.appendChild(matrixSection);
+        
+        // All Metrics
+        const metricsSection = document.createElement('div');
+        metricsSection.className = 'mt-6';
+        
+        const metricsLabel = document.createElement('p');
+        metricsLabel.className = 'text-xs font-bold text-slate-300 mb-4 uppercase tracking-wide';
+        metricsLabel.textContent = 'Cryptographic Metrics';
+        metricsSection.appendChild(metricsLabel);
+        
+        const metricsGrid = document.createElement('div');
+        metricsGrid.className = 'grid grid-cols-2 gap-3';
+        
+        const metricsList = [
+            { key: 'NL', label: 'Nonlinearity', value: candidate.metrics.NL, ideal: '112' },
+            { key: 'SAC', label: 'Strict Avalanche', value: candidate.metrics.SAC.toFixed(4), ideal: '0.5' },
+            { key: 'BIC_NL', label: 'BIC-NL', value: candidate.metrics.BIC_NL, ideal: '112' },
+            { key: 'BIC_SAC', label: 'BIC-SAC', value: candidate.metrics.BIC_SAC.toFixed(4), ideal: '0.5' },
+            { key: 'LAP', label: 'Linear Approx', value: candidate.metrics.LAP.toFixed(4), ideal: '0.0625' },
+            { key: 'DAP', label: 'Differential', value: candidate.metrics.DAP.toFixed(4), ideal: '0.0156' },
+            { key: 'DU', label: 'Differential Uni', value: candidate.metrics.DU, ideal: '4' },
+            { key: 'AD', label: 'Algebraic Deg', value: candidate.metrics.AD, ideal: '7' },
+            { key: 'TO', label: 'Tradeoff', value: candidate.metrics.TO, ideal: '0' },
+            { key: 'CI', label: 'Correlation Im', value: candidate.metrics.CI, ideal: '0' }
+        ];
+        
+        metricsList.forEach(metric => {
+            const metricCard = document.createElement('div');
+            metricCard.className = 'p-3 bg-slate-800/50 rounded-lg border border-slate-700/50';
+            metricCard.innerHTML = `
+                <p class="text-[11px] text-slate-400 mb-2">${metric.label}</p>
+                <p class="text-lg font-bold text-white">${metric.value}</p>
+                <p class="text-[10px] text-slate-500 mt-1">Ideal: ${metric.ideal}</p>
+            `;
+            metricsGrid.appendChild(metricCard);
+        });
+        
+        metricsSection.appendChild(metricsGrid);
+        cardContainer.appendChild(metricsSection);
+    }
+
     // Auto-select K44 if exists, otherwise first item
     const k44Idx = candidatesData.findIndex(c => c.id === 'K44');
     if(k44Idx !== -1) {
-        els.selector.value = k44Idx;
+        if (els.selector) els.selector.value = k44Idx;
+        if (els.explorationSelector) els.explorationSelector.value = k44Idx;
+        if (els.encryptSelector) els.encryptSelector.value = k44Idx;
+        if (els.comparisonSelector1) els.comparisonSelector1.value = k44Idx;
+        if (els.comparisonSelector2) els.comparisonSelector2.value = k44Idx > 0 ? k44Idx - 1 : 1;
+        currentData = candidatesData[k44Idx];
+        // Show exploration content immediately
+        if (els.explorationContent) els.explorationContent.style.display = 'block';
         updateUI(k44Idx);
+        selectedEncryptData = candidatesData[k44Idx];
+        selectedCompareData1 = candidatesData[k44Idx];
+        selectedCompareData2 = candidatesData[k44Idx > 0 ? k44Idx - 1 : 1];
     } else {
+        if (els.explorationSelector) els.explorationSelector.value = 0;
+        currentData = candidatesData[0];
+        // Show exploration content immediately
+        if (els.explorationContent) els.explorationContent.style.display = 'block';
         updateUI(0);
+        selectedEncryptData = candidatesData[0];
+        selectedCompareData1 = candidatesData[0];
+        selectedCompareData2 = candidatesData[1] || candidatesData[0];
+    }
+
+    // ============================================
+    // IMAGE ENCRYPTION FUNCTIONALITY
+    // ============================================
+    
+    let uploadedImageFile = null;
+    let lastResultImageDataUrl = null;
+
+    // Image Upload Handler
+    const imageUpload = document.getElementById('imageUpload');
+    const encryptImageBtn = document.getElementById('encryptImageBtn');
+    const decryptImageBtn = document.getElementById('decryptImageBtn');
+    const downloadImageBtn = document.getElementById('downloadImageBtn');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+    const originalImagePreview = document.getElementById('originalImagePreview');
+    const resultImagePreview = document.getElementById('resultImagePreview');
+    const imageMetrics = document.getElementById('imageMetrics');
+    const imageLoadingIndicator = document.getElementById('imageLoadingIndicator');
+    const resultLabel = document.getElementById('resultLabel');
+
+    if (imageUpload) {
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadedImageFile = file;
+                
+                // Preview original image
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    originalImagePreview.src = event.target.result;
+                    imagePreviewContainer.style.display = 'grid';
+                    resultImagePreview.src = '';
+                    imageMetrics.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+                
+                // Enable encrypt button
+                encryptImageBtn.disabled = false;
+                decryptImageBtn.disabled = false;
+            }
+        });
+    }
+
+    // Encrypt Image Handler
+    if (encryptImageBtn) {
+        encryptImageBtn.addEventListener('click', async () => {
+            if (!uploadedImageFile) {
+                alert('Please upload an image first!');
+                return;
+            }
+
+            // Use selected encryption matrix
+            const sboxId = selectedEncryptData.id;
+            
+            // Show loading
+            imageLoadingIndicator.classList.remove('hidden');
+            encryptImageBtn.disabled = true;
+            decryptImageBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('image', uploadedImageFile);
+                formData.append('sbox_id', sboxId);
+
+                const response = await fetch('/encrypt-image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Display encrypted image
+                    resultImagePreview.src = data.encrypted_image;
+                    lastResultImageDataUrl = data.encrypted_image;
+                    resultLabel.textContent = 'Encrypted';
+                    if (downloadImageBtn) downloadImageBtn.style.display = 'inline-block';
+                    
+                    // Display metrics
+                    displayImageMetrics(data.metrics);
+                    imageMetrics.style.display = 'block';
+                } else {
+                    alert('Encryption failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Encryption failed: ' + error.message);
+            } finally {
+                imageLoadingIndicator.classList.add('hidden');
+                encryptImageBtn.disabled = false;
+                decryptImageBtn.disabled = false;
+            }
+        });
+    }
+
+    // Decrypt Image Handler
+    if (decryptImageBtn) {
+        decryptImageBtn.addEventListener('click', async () => {
+            if (!uploadedImageFile) {
+                alert('Please upload an image first!');
+                return;
+            }
+
+            // Use selected encryption matrix
+            const sboxId = selectedEncryptData.id;
+            
+            // Show loading
+            imageLoadingIndicator.classList.remove('hidden');
+            encryptImageBtn.disabled = true;
+            decryptImageBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('image', uploadedImageFile);
+                formData.append('sbox_id', sboxId);
+
+                const response = await fetch('/decrypt-image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Display decrypted image
+                    resultImagePreview.src = data.decrypted_image;
+                    lastResultImageDataUrl = data.decrypted_image;
+                    resultLabel.textContent = 'Decrypted';
+                    if (downloadImageBtn) downloadImageBtn.style.display = 'inline-block';
+                    imageMetrics.style.display = 'none';
+                } else {
+                    alert('Decryption failed: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Decryption failed: ' + error.message);
+            } finally {
+                imageLoadingIndicator.classList.add('hidden');
+                encryptImageBtn.disabled = false;
+                decryptImageBtn.disabled = false;
+            }
+        });
+    }
+
+    // Download Image Handler
+    if (downloadImageBtn) {
+        downloadImageBtn.addEventListener('click', () => {
+            if (!lastResultImageDataUrl) {
+                alert('No image to download!');
+                return;
+            }
+
+            // Create a temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = lastResultImageDataUrl;
+            
+            const timestamp = new Date().getTime();
+            const resultType = resultLabel.textContent === 'Encrypted' ? 'encrypted' : 'decrypted';
+            link.download = `sbox-${resultType}-${timestamp}.png`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show visual feedback
+            downloadImageBtn.innerHTML = '<i class="fas fa-check mr-1"></i>Downloaded';
+            downloadImageBtn.classList.add('bg-emerald-500/20', 'border-emerald-500/50');
+            setTimeout(() => {
+                downloadImageBtn.innerHTML = '<i class="fas fa-download mr-1"></i>Download';
+                downloadImageBtn.classList.remove('bg-emerald-500/20', 'border-emerald-500/50');
+            }, 2000);
+        });
+    }
+
+    // Display Image Metrics
+    function displayImageMetrics(metrics) {
+        document.getElementById('metricOrigEntropy').textContent = metrics.original_entropy.toFixed(6);
+        document.getElementById('metricEncEntropy').textContent = metrics.encrypted_entropy.toFixed(6);
+        document.getElementById('metricNPCR').textContent = metrics.npcr.toFixed(4) + '%';
+        document.getElementById('metricUACI').textContent = metrics.uaci.toFixed(4) + '%';
+        document.getElementById('metricMAE').textContent = metrics.mae.toFixed(4);
+        
+        // Correlation coefficients
+        document.getElementById('corrOrigH').textContent = metrics.original_correlation.horizontal.toFixed(6);
+        document.getElementById('corrOrigV').textContent = metrics.original_correlation.vertical.toFixed(6);
+        document.getElementById('corrOrigD').textContent = metrics.original_correlation.diagonal.toFixed(6);
+        
+        document.getElementById('corrEncH').textContent = metrics.encrypted_correlation.horizontal.toFixed(6);
+        document.getElementById('corrEncV').textContent = metrics.encrypted_correlation.vertical.toFixed(6);
+        document.getElementById('corrEncD').textContent = metrics.encrypted_correlation.diagonal.toFixed(6);
     }
 });
+

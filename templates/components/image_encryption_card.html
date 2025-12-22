@@ -1,0 +1,148 @@
+<!-- Image Encryption/Decryption Component -->
+<div class="card-glass p-6 rounded-2xl animate-slide-in">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                <i class="fas fa-image text-white"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-white">Image Encryption</h3>
+                <p class="text-xs text-slate-400">Encrypt/Decrypt images with S-Box</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="space-y-4">
+        <!-- Image Upload -->
+        <div class="relative">
+            <input type="file" id="imageUpload" accept="image/*" class="hidden">
+            <button onclick="document.getElementById('imageUpload').click()" 
+                    class="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+                <i class="fas fa-upload"></i>
+                <span>Upload Image</span>
+            </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+            <button id="encryptImageBtn" 
+                    class="px-4 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-emerald-300 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                <i class="fas fa-lock"></i>
+                <span>Encrypt</span>
+            </button>
+            <button id="decryptImageBtn" 
+                    class="px-4 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                <i class="fas fa-unlock"></i>
+                <span>Decrypt</span>
+            </button>
+        </div>
+
+        <!-- Preview Images -->
+        <div class="grid grid-cols-2 gap-3 mt-4" id="imagePreviewContainer" style="display: none;">
+            <div class="space-y-2">
+                <p class="text-xs font-semibold text-slate-300 text-center">Original</p>
+                <div class="relative aspect-square bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700">
+                    <img id="originalImagePreview" class="w-full h-full object-contain">
+                </div>
+            </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-slate-300" id="resultLabel">Result</p>
+                    <button id="downloadImageBtn"
+                            class="px-2 py-1 text-xs bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/50 text-indigo-300 rounded transition-all"
+                            style="display: none;">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </button>
+                </div>
+                <div class="relative aspect-square bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700">
+                    <img id="resultImagePreview" class="w-full h-full object-contain">
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Display -->
+        <div id="imageMetrics" class="mt-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700" style="display: none;">
+            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                <i class="fas fa-chart-line text-indigo-400"></i>
+                Security Metrics
+            </h4>
+            
+            <!-- Entropy -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="p-2 bg-slate-900/50 rounded">
+                    <p class="text-xs text-slate-400">Original Entropy</p>
+                    <p class="text-lg font-bold text-white" id="metricOrigEntropy">-</p>
+                </div>
+                <div class="p-2 bg-slate-900/50 rounded">
+                    <p class="text-xs text-slate-400">Encrypted Entropy</p>
+                    <p class="text-lg font-bold text-emerald-400" id="metricEncEntropy">-</p>
+                </div>
+            </div>
+
+            <!-- NPCR & UACI -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="p-2 bg-slate-900/50 rounded">
+                    <p class="text-xs text-slate-400 flex items-center gap-1">
+                        NPCR
+                        <span class="cursor-help" title="Number of Pixels Change Rate">
+                            <i class="fas fa-info-circle text-slate-500 text-xs"></i>
+                        </span>
+                    </p>
+                    <p class="text-lg font-bold text-purple-400" id="metricNPCR">-</p>
+                </div>
+                <div class="p-2 bg-slate-900/50 rounded">
+                    <p class="text-xs text-slate-400 flex items-center gap-1">
+                        UACI
+                        <span class="cursor-help" title="Unified Average Changing Intensity">
+                            <i class="fas fa-info-circle text-slate-500 text-xs"></i>
+                        </span>
+                    </p>
+                    <p class="text-lg font-bold text-purple-400" id="metricUACI">-</p>
+                </div>
+            </div>
+
+            <!-- MAE -->
+            <div class="p-2 bg-slate-900/50 rounded mb-3">
+                <p class="text-xs text-slate-400">MAE (Mean Absolute Error)</p>
+                <p class="text-lg font-bold text-yellow-400" id="metricMAE">-</p>
+            </div>
+
+            <!-- Correlation -->
+            <div class="p-3 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 rounded border border-indigo-500/20">
+                <p class="text-xs font-semibold text-indigo-300 mb-2">Correlation Coefficients</p>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                        <p class="text-slate-400">Horizontal</p>
+                        <p class="font-mono text-white" id="corrOrigH">-</p>
+                        <p class="font-mono text-emerald-400" id="corrEncH">-</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400">Vertical</p>
+                        <p class="font-mono text-white" id="corrOrigV">-</p>
+                        <p class="font-mono text-emerald-400" id="corrEncV">-</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400">Diagonal</p>
+                        <p class="font-mono text-white" id="corrOrigD">-</p>
+                        <p class="font-mono text-emerald-400" id="corrEncD">-</p>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">
+                    <span class="text-white">■</span> Original
+                    <span class="text-emerald-400 ml-2">■</span> Encrypted
+                </p>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="imageLoadingIndicator" class="hidden mt-4 p-3 bg-indigo-600/20 border border-indigo-500/50 rounded-lg">
+            <div class="flex items-center gap-3">
+                <div class="animate-spin rounded-full h-4 w-4 border-2 border-indigo-400 border-t-transparent"></div>
+                <span class="text-sm text-indigo-300">Processing image...</span>
+            </div>
+        </div>
+    </div>
+</div>

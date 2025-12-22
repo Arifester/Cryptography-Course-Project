@@ -34,19 +34,144 @@
             </div>
         </div>
 
-        <!-- 10 Metrics Component -->
-        {% include "components/scorecard.html" %}
+        <!-- Tab Navigation -->
+        <div class="mb-8 animate-fade-in">
+            <div class="flex flex-wrap gap-2 p-2 bg-slate-800/50 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                <button class="tab-btn active" data-tab="exploration">
+                    <i class="fas fa-search mr-2"></i>
+                    Eksplorasi S-Box
+                </button>
+                <button class="tab-btn" data-tab="comparison">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Perbandingan Matrix
+                </button>
+                <button class="tab-btn" data-tab="encryption">
+                    <i class="fas fa-lock mr-2"></i>
+                    Enkripsi & Dekripsi
+                </button>
+            </div>
+        </div>
 
-        <div class="grid lg:grid-cols-12 gap-6 mt-8">
-            <!-- Left Column -->
-            <div class="lg:col-span-4 space-y-6">
-                {% include "components/matrix_card.html" %}
-                {% include "components/crypto_card.html" %}
+        <!-- TAB 1: EKSPLORASI S-BOX -->
+        <div id="tab-exploration" class="tab-content active">
+            <!-- Matrix Selector for Exploration -->
+            <div class="card-glass p-6 rounded-2xl mb-6 animate-scale-in">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-cog text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Pilih Affine Matrix</h3>
+                        <p class="text-xs text-slate-400">Pilih matrix untuk memulai eksplorasi S-Box</p>
+                    </div>
+                </div>
+                <select id="explorationMatrixSelector" class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    <!-- Will be populated by JavaScript -->
+                </select>
             </div>
 
-            <!-- Right Column -->
-            <div class="lg:col-span-8">
-                {% include "components/sbox_table.html" %}
+            <!-- Content Container (Hidden by default) -->
+            <div id="explorationContent" style="display: none;">
+                <!-- 10 Metrics Component -->
+                {% include "components/scorecard.html" %}
+
+                <div class="grid lg:grid-cols-12 gap-6 mt-8">
+                    <!-- Left Column -->
+                    <div class="lg:col-span-4 space-y-6">
+                        {% include "components/matrix_card.html" %}
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="lg:col-span-8">
+                        {% include "components/sbox_table.html" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: PERBANDINGAN MATRIX -->
+        <div id="tab-comparison" class="tab-content" style="display: none;">
+            <!-- Dual Matrix Selectors for Comparison -->
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <!-- First Matrix Selector -->
+                <div class="card-glass p-6 rounded-2xl animate-scale-in">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Matrix Pertama</h3>
+                            <p class="text-xs text-slate-400">Pilih matrix pertama untuk dibandingkan</p>
+                        </div>
+                    </div>
+                    <select id="comparisonMatrix1Selector" class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                        <!-- Will be populated by JavaScript -->
+                    </select>
+                </div>
+
+                <!-- Second Matrix Selector -->
+                <div class="card-glass p-6 rounded-2xl animate-scale-in">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Matrix Kedua</h3>
+                            <p class="text-xs text-slate-400">Pilih matrix kedua untuk dibandingkan</p>
+                        </div>
+                    </div>
+                    <select id="comparisonMatrix2Selector" class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all">
+                        <!-- Will be populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Content Container (Hidden by default) -->
+            <div id="comparisonContent" style="display: none;">
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <!-- First Matrix Comparison Card -->
+                    <div id="comparisonCard1" class="card-glass p-6 rounded-2xl">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+
+                    <!-- Second Matrix Comparison Card -->
+                    <div id="comparisonCard2" class="card-glass p-6 rounded-2xl">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: ENKRIPSI & DEKRIPSI -->
+        <div id="tab-encryption" class="tab-content" style="display: none;">
+            <!-- Matrix Selector for Encryption -->
+            <div class="card-glass p-6 rounded-2xl mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-cog text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-white">Pilih Affine Matrix</h3>
+                            <p class="text-xs text-slate-400">Pilih matrix untuk proses enkripsi/dekripsi</p>
+                        </div>
+                    </div>
+                </div>
+                <select id="encryptMatrixSelector" class="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    <!-- Will be populated by JavaScript -->
+                </select>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6">
+                <!-- Text Encryption -->
+                <div>
+                    {% include "components/crypto_card.html" %}
+                </div>
+                
+                <!-- Image Encryption -->
+                <div>
+                    {% include "components/image_encryption_card.html" %}
+                </div>
             </div>
         </div>
 
