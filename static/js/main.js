@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Data Loading
     const candidatesData = window.APP_DATA || [];
     
+    // Store data globally for comparison feature
+    window.sboxDataStore = candidatesData;
+    
     // Hide loading overlay with animation
     setTimeout(() => {
         const loader = document.getElementById('loadingOverlay');
@@ -54,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Old selector (removed from navbar, keep for backward compatibility)
         selector: null,
         encryptSelector: document.getElementById('encryptMatrixSelector'),
+        textEncryptSelector: document.getElementById('textEncryptMatrixSelector'),
+        imageEncryptSelector: document.getElementById('imageEncryptMatrixSelector'),
         explorationSelector: document.getElementById('explorationMatrixSelector'),
         comparisonSelector1: document.getElementById('comparisonMatrix1Selector'),
         comparisonSelector2: document.getElementById('comparisonMatrix2Selector'),
@@ -88,6 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentData = candidatesData[0];
     let selectedEncryptData = candidatesData[0]; // For encryption tab
+    let selectedTextEncryptData = candidatesData[0]; // For text encryption tab
+    let selectedImageEncryptData = candidatesData[0]; // For image encryption tab
     let selectedCompareData1 = candidatesData[0]; // For comparison tab - first matrix
     let selectedCompareData2 = candidatesData[1] || candidatesData[0]; // For comparison tab - second matrix
     let inverseSBox = [];
@@ -449,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMatrixComparison();
     });
 
-    // Populate Encryption Matrix Selector
+    // Populate Encryption Matrix Selector (legacy - keep for backward compatibility)
     if (els.encryptSelector) {
         populateSelector(els.encryptSelector, (e) => {
             selectedEncryptData = candidatesData[+e.target.value];
@@ -457,6 +464,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (els.inputPlain) {
                 doCrypto();
             }
+        });
+    }
+
+    // Populate Text Encryption Matrix Selector
+    if (els.textEncryptSelector) {
+        populateSelector(els.textEncryptSelector, (e) => {
+            selectedTextEncryptData = candidatesData[+e.target.value];
+            selectedEncryptData = selectedTextEncryptData; // Sync for crypto function
+            // Re-run crypto with new matrix
+            if (els.inputPlain) {
+                doCrypto();
+            }
+        });
+    }
+
+    // Populate Image Encryption Matrix Selector
+    if (els.imageEncryptSelector) {
+        populateSelector(els.imageEncryptSelector, (e) => {
+            selectedImageEncryptData = candidatesData[+e.target.value];
+            selectedEncryptData = selectedImageEncryptData; // Sync for image encryption
         });
     }
 
@@ -712,6 +739,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.selector) els.selector.value = k44Idx;
         if (els.explorationSelector) els.explorationSelector.value = k44Idx;
         if (els.encryptSelector) els.encryptSelector.value = k44Idx;
+        if (els.textEncryptSelector) els.textEncryptSelector.value = k44Idx;
+        if (els.imageEncryptSelector) els.imageEncryptSelector.value = k44Idx;
         if (els.comparisonSelector1) els.comparisonSelector1.value = k44Idx;
         if (els.comparisonSelector2) els.comparisonSelector2.value = k44Idx > 0 ? k44Idx - 1 : 1;
         currentData = candidatesData[k44Idx];
@@ -719,15 +748,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.explorationContent) els.explorationContent.style.display = 'block';
         updateUI(k44Idx);
         selectedEncryptData = candidatesData[k44Idx];
+        selectedTextEncryptData = candidatesData[k44Idx];
+        selectedImageEncryptData = candidatesData[k44Idx];
         selectedCompareData1 = candidatesData[k44Idx];
         selectedCompareData2 = candidatesData[k44Idx > 0 ? k44Idx - 1 : 1];
     } else {
         if (els.explorationSelector) els.explorationSelector.value = 0;
+        if (els.textEncryptSelector) els.textEncryptSelector.value = 0;
+        if (els.imageEncryptSelector) els.imageEncryptSelector.value = 0;
         currentData = candidatesData[0];
         // Show exploration content immediately
         if (els.explorationContent) els.explorationContent.style.display = 'block';
         updateUI(0);
         selectedEncryptData = candidatesData[0];
+        selectedTextEncryptData = candidatesData[0];
+        selectedImageEncryptData = candidatesData[0];
         selectedCompareData1 = candidatesData[0];
         selectedCompareData2 = candidatesData[1] || candidatesData[0];
     }
@@ -782,8 +817,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Use selected encryption matrix
-            const sboxId = selectedEncryptData.id;
+            // Use selected image encryption matrix
+            const sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
             
             // Get encryption key
             const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
@@ -825,10 +860,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     const histogramContainer = document.getElementById('histogramContainer');
                     const originalHistogram = document.getElementById('originalHistogram');
                     const encryptedHistogram = document.getElementById('encryptedHistogram');
+                    const histogramTitle1 = document.getElementById('histogramTitle1');
+                    const histogramTitle2 = document.getElementById('histogramTitle2');
+                    const histogramDesc1 = document.getElementById('histogramDesc1');
+                    const histogramDesc2 = document.getElementById('histogramDesc2');
+                    const histogramArrowText = document.getElementById('histogramArrowText');
+                    const histogramExplanationText = document.getElementById('histogramExplanationText');
                     
                     if (histogramContainer && originalHistogram && encryptedHistogram) {
                         originalHistogram.src = data.original_histogram;
                         encryptedHistogram.src = data.encrypted_histogram;
+                        
+                        // Reset labels for encryption
+                        if (histogramTitle1) histogramTitle1.innerHTML = '<span class="w-2 h-2 bg-blue-400 rounded-full"></span> Original Image Histogram';
+                        if (histogramTitle2) histogramTitle2.innerHTML = '<span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span> Encrypted Image Histogram';
+                        if (histogramDesc1) histogramDesc1.textContent = 'Shows natural pixel distribution patterns';
+                        if (histogramDesc2) histogramDesc2.textContent = 'Should be uniformly flat (random)';
+                        if (histogramArrowText) histogramArrowText.textContent = 'After S-Box Encryption';
+                        if (histogramExplanationText) histogramExplanationText.innerHTML = '<strong>Good encryption</strong> produces a <strong>flat/uniform histogram</strong> where all pixel values (0-255) appear with equal frequency. This means attackers cannot extract statistical information from the encrypted image.';
+                        
                         histogramContainer.style.display = 'block';
                     }
                 } else {
@@ -853,8 +903,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Use selected encryption matrix
-            const sboxId = selectedEncryptData.id;
+            // Use selected image encryption matrix
+            const sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
             
             // Get encryption key
             const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
@@ -889,9 +939,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (downloadImageBtn) downloadImageBtn.style.display = 'inline-block';
                     imageMetrics.style.display = 'none';
                     
-                    // Hide histogram on decrypt
+                    // Show histogram comparison for decrypt
                     const histogramContainer = document.getElementById('histogramContainer');
-                    if (histogramContainer) histogramContainer.style.display = 'none';
+                    const originalHistogram = document.getElementById('originalHistogram');
+                    const encryptedHistogram = document.getElementById('encryptedHistogram');
+                    const histogramTitle1 = document.getElementById('histogramTitle1');
+                    const histogramTitle2 = document.getElementById('histogramTitle2');
+                    const histogramDesc1 = document.getElementById('histogramDesc1');
+                    const histogramDesc2 = document.getElementById('histogramDesc2');
+                    const histogramExplanationText = document.getElementById('histogramExplanationText');
+                    
+                    if (histogramContainer && originalHistogram && encryptedHistogram) {
+                        // For decrypt: show encrypted vs decrypted
+                        originalHistogram.src = data.encrypted_histogram;
+                        encryptedHistogram.src = data.decrypted_histogram;
+                        
+                        // Update labels
+                        if (histogramTitle1) histogramTitle1.innerHTML = '<span class="w-2 h-2 bg-purple-400 rounded-full"></span> Encrypted Image Histogram';
+                        if (histogramTitle2) histogramTitle2.innerHTML = '<span class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span> Decrypted Image Histogram';
+                        if (histogramDesc1) histogramDesc1.textContent = 'Uniform distribution (encrypted)';
+                        if (histogramDesc2) histogramDesc2.textContent = 'Restored natural patterns';
+                        
+                        // Update arrow text
+                        const arrowText = document.getElementById('histogramArrowText');
+                        if (arrowText) arrowText.textContent = 'After S-Box Decryption';
+                        
+                        // Update explanation for decryption
+                        if (histogramExplanationText) histogramExplanationText.innerHTML = '<strong>Successful decryption</strong> restores the <strong>original histogram pattern</strong>. The decrypted histogram should match the original image\'s natural pixel distribution, confirming that the encryption/decryption process is reversible.';
+                        
+                        histogramContainer.style.display = 'block';
+                    }
                 } else {
                     alert('Decryption failed: ' + data.error);
                 }
@@ -953,5 +1030,464 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('corrEncV').textContent = metrics.encrypted_correlation.vertical.toFixed(6);
         document.getElementById('corrEncD').textContent = metrics.encrypted_correlation.diagonal.toFixed(6);
     }
+
+    // ============================================
+    // CUSTOM S-BOX UPLOAD FUNCTIONALITY
+    // ============================================
+    
+    const customSboxUpload = document.getElementById('customSboxUpload');
+    const customSboxDropzone = document.getElementById('customSboxDropzone');
+    const customSboxStatus = document.getElementById('customSboxStatus');
+    const customSboxResults = document.getElementById('customSboxResults');
+    const analyzeCustomSboxBtn = document.getElementById('analyzeCustomSboxBtn');
+    
+    let uploadedCustomSbox = null;
+
+    if (customSboxUpload) {
+        // File upload handler
+        customSboxUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await handleCustomSboxUpload(file);
+            }
+        });
+
+        // Drag and drop
+        if (customSboxDropzone) {
+            customSboxDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                customSboxDropzone.classList.add('border-cyan-500', 'bg-cyan-500/10');
+            });
+
+            customSboxDropzone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                customSboxDropzone.classList.remove('border-cyan-500', 'bg-cyan-500/10');
+            });
+
+            customSboxDropzone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                customSboxDropzone.classList.remove('border-cyan-500', 'bg-cyan-500/10');
+                
+                const file = e.dataTransfer.files[0];
+                if (file) {
+                    await handleCustomSboxUpload(file);
+                }
+            });
+        }
+    }
+
+    async function handleCustomSboxUpload(file) {
+        // Show status
+        customSboxStatus.classList.remove('hidden');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+
+        statusIcon.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-2 border-cyan-400 border-t-transparent"></div>';
+        statusIcon.className = 'w-10 h-10 rounded-full flex items-center justify-center';
+        statusTitle.textContent = 'Processing...';
+        statusTitle.className = 'font-semibold text-white';
+        statusMessage.textContent = 'Menganalisis file Excel...';
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/upload-custom-sbox', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Success
+                statusIcon.innerHTML = '<i class="fas fa-check-circle text-2xl text-emerald-400"></i>';
+                statusIcon.className = 'w-10 h-10 rounded-full flex items-center justify-center bg-emerald-500/20';
+                statusTitle.textContent = 'S-Box Valid!';
+                statusTitle.className = 'font-semibold text-emerald-300';
+                statusMessage.textContent = data.message;
+
+                // Store uploaded S-Box
+                uploadedCustomSbox = data;
+
+                // Show results section
+                customSboxResults.style.display = 'block';
+                
+                // Update info
+                document.getElementById('customSboxInfo').textContent = 
+                    `256 nilai unik terdeteksi | Fixed points: ${data.metrics.fixed_points}`;
+
+                // Render S-Box preview table
+                renderCustomSboxTable(data.sbox);
+            } else {
+                // Error
+                statusIcon.innerHTML = '<i class="fas fa-times-circle text-2xl text-red-400"></i>';
+                statusIcon.className = 'w-10 h-10 rounded-full flex items-center justify-center bg-red-500/20';
+                statusTitle.textContent = 'Error!';
+                statusTitle.className = 'font-semibold text-red-300';
+                statusMessage.textContent = data.error;
+                customSboxResults.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            statusIcon.innerHTML = '<i class="fas fa-times-circle text-2xl text-red-400"></i>';
+            statusIcon.className = 'w-10 h-10 rounded-full flex items-center justify-center bg-red-500/20';
+            statusTitle.textContent = 'Error!';
+            statusTitle.className = 'font-semibold text-red-300';
+            statusMessage.textContent = error.message;
+            customSboxResults.style.display = 'none';
+        }
+    }
+
+    function renderCustomSboxTable(sbox) {
+        const container = document.getElementById('customSboxTable');
+        if (!container) return;
+
+        let html = '<table class="w-full text-xs font-mono">';
+        
+        // Header row
+        html += '<tr><th class="p-1 bg-slate-800 text-slate-400"></th>';
+        for (let c = 0; c < 16; c++) {
+            html += `<th class="p-1 bg-slate-800 text-cyan-400 text-center">${c.toString(16).toUpperCase()}</th>`;
+        }
+        html += '</tr>';
+
+        // Data rows
+        for (let r = 0; r < 16; r++) {
+            html += `<tr><th class="p-1 bg-slate-800 text-cyan-400 text-center">${r.toString(16).toUpperCase()}</th>`;
+            for (let c = 0; c < 16; c++) {
+                const idx = r * 16 + c;
+                const value = sbox[idx];
+                const hue = 180 - (value / 255) * 180;
+                const bgColor = `hsl(${hue}, 70%, 35%)`;
+                html += `<td class="p-1 text-center text-white border border-slate-700" style="background-color: ${bgColor};">${value.toString(16).toUpperCase().padStart(2, '0')}</td>`;
+            }
+            html += '</tr>';
+        }
+        
+        html += '</table>';
+        container.innerHTML = html;
+    }
+
+    // Analyze button
+    if (analyzeCustomSboxBtn) {
+        analyzeCustomSboxBtn.addEventListener('click', () => {
+            if (!uploadedCustomSbox) {
+                alert('Please upload an S-Box file first!');
+                return;
+            }
+
+            const metricsContainer = document.getElementById('customSboxMetrics');
+            if (!metricsContainer) return;
+
+            const metrics = uploadedCustomSbox.metrics;
+            const customName = document.getElementById('customSboxName')?.value || 'Custom S-Box';
+
+            // Render metrics cards
+            metricsContainer.innerHTML = `
+                <div class="card-glass p-6 rounded-2xl">
+                    <h4 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line text-teal-400"></i>
+                        Cryptographic Properties: ${customName}
+                    </h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Nonlinearity</p>
+                            <p class="text-2xl font-bold ${metrics.nonlinearity >= 100 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.nonlinearity}</p>
+                            <p class="text-xs text-slate-500">Target: ≥ 100</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">SAC</p>
+                            <p class="text-2xl font-bold ${Math.abs(metrics.sac - 0.5) < 0.05 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.sac.toFixed(4)}</p>
+                            <p class="text-xs text-slate-500">Target: ~0.5</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">BIC</p>
+                            <p class="text-2xl font-bold ${metrics.bic > 0.45 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.bic.toFixed(4)}</p>
+                            <p class="text-xs text-slate-500">Target: ~0.5</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">LAP</p>
+                            <p class="text-2xl font-bold ${metrics.lap <= 0.0625 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.lap.toFixed(4)}</p>
+                            <p class="text-xs text-slate-500">Target: ≤ 0.0625</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">DAP</p>
+                            <p class="text-2xl font-bold ${metrics.dap <= 0.015625 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.dap.toFixed(4)}</p>
+                            <p class="text-xs text-slate-500">Target: ≤ 0.0156</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Fixed Points</p>
+                            <p class="text-2xl font-bold ${metrics.fixed_points <= 2 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.fixed_points}</p>
+                            <p class="text-xs text-slate-500">Target: 0-2</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Opposite FP</p>
+                            <p class="text-2xl font-bold ${metrics.opposite_fixed_points <= 2 ? 'text-emerald-400' : 'text-yellow-400'}">${metrics.opposite_fixed_points}</p>
+                            <p class="text-xs text-slate-500">Target: 0-2</p>
+                        </div>
+                        <div class="p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                            <p class="text-xs text-slate-400 mb-1">Bijective</p>
+                            <p class="text-2xl font-bold text-emerald-400"><i class="fas fa-check-circle"></i></p>
+                            <p class="text-xs text-slate-500">Valid</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Scroll to metrics
+            metricsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    // --- Custom S-Box Comparison Feature ---
+    const compareSboxSelector = document.getElementById('compareSboxSelector');
+    const compareSboxBtn = document.getElementById('compareSboxBtn');
+    const sboxComparisonResults = document.getElementById('sboxComparisonResults');
+
+    // Populate compare selector with existing S-Boxes
+    function populateCompareSboxSelector() {
+        if (!compareSboxSelector || !window.sboxDataStore) return;
+
+        compareSboxSelector.innerHTML = '<option value="">-- Pilih S-Box --</option>';
+        
+        window.sboxDataStore.forEach((sbox, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = sbox.name;
+            compareSboxSelector.appendChild(option);
+        });
+    }
+
+    // Enable/disable compare button based on selection
+    if (compareSboxSelector) {
+        compareSboxSelector.addEventListener('change', (e) => {
+            if (compareSboxBtn) {
+                compareSboxBtn.disabled = !e.target.value;
+            }
+        });
+    }
+
+    // Compare S-Boxes
+    if (compareSboxBtn) {
+        compareSboxBtn.addEventListener('click', () => {
+            if (!uploadedCustomSbox || !compareSboxSelector.value) return;
+
+            const selectedIndex = parseInt(compareSboxSelector.value);
+            const existingSbox = window.sboxDataStore[selectedIndex];
+            
+            if (!existingSbox || !sboxComparisonResults) return;
+
+            const customMetrics = uploadedCustomSbox.metrics;
+            const existingMetrics = existingSbox.metrics;  // Use .metrics instead of .analysis
+            const customName = document.getElementById('customSboxName')?.value || 'Custom S-Box';
+
+            // Create comparison UI
+            sboxComparisonResults.innerHTML = `
+                <div class="border-t border-slate-700 pt-6">
+                    <h4 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-bar text-purple-400"></i>
+                        Hasil Perbandingan
+                    </h4>
+                    
+                    <!-- Comparison Header -->
+                    <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                        <div class="p-3 bg-teal-500/20 rounded-lg border border-teal-500/30">
+                            <p class="text-sm font-bold text-teal-300">${customName}</p>
+                            <p class="text-xs text-slate-400">Custom Upload</p>
+                        </div>
+                        <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-600">
+                            <p class="text-sm font-bold text-slate-300">VS</p>
+                            <p class="text-xs text-slate-500">Properti</p>
+                        </div>
+                        <div class="p-3 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                            <p class="text-sm font-bold text-purple-300">${existingSbox.name}</p>
+                            <p class="text-xs text-slate-400">Existing S-Box</p>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Metrics -->
+                    <div class="space-y-3">
+                        ${renderComparisonRow('Nonlinearity', customMetrics.nonlinearity, existingMetrics.NL, 'higher', '≥100')}
+                        ${renderComparisonRow('SAC', customMetrics.sac.toFixed(4), existingMetrics.SAC.toFixed(4), 'closer_to_0.5', '~0.5')}
+                        ${renderComparisonRow('BIC', customMetrics.bic.toFixed(4), existingMetrics.BIC_SAC.toFixed(4), 'closer_to_0.5', '~0.5')}
+                        ${renderComparisonRow('LAP', customMetrics.lap.toFixed(4), existingMetrics.LAP.toFixed(4), 'lower', '≤0.0625')}
+                        ${renderComparisonRow('DAP', customMetrics.dap.toFixed(4), existingMetrics.DAP.toFixed(4), 'lower', '≤0.0156')}
+                        ${renderComparisonRow('Fixed Points', customMetrics.fixed_points, existingMetrics.TO || 0, 'lower', '0-2')}
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="mt-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+                        <h5 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                            <i class="fas fa-clipboard-check text-cyan-400"></i>
+                            Ringkasan Perbandingan
+                        </h5>
+                        <div id="comparisonSummary" class="text-sm text-slate-300">
+                            ${generateComparisonSummary(customName, existingSbox.name, customMetrics, existingMetrics)}
+                        </div>
+                    </div>
+
+                    <!-- Visual Comparison Chart -->
+                    <div class="mt-4">
+                        <h5 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                            <i class="fas fa-chart-area text-cyan-400"></i>
+                            Perbandingan Visual (Normalized)
+                        </h5>
+                        <div class="space-y-2">
+                            ${renderComparisonBar('NL', customMetrics.nonlinearity, existingMetrics.NL, 112, customName, existingSbox.name)}
+                            ${renderComparisonBar('SAC', customMetrics.sac * 100, existingMetrics.SAC * 100, 50, customName, existingSbox.name)}
+                            ${renderComparisonBar('BIC', customMetrics.bic * 100, existingMetrics.BIC_SAC * 100, 50, customName, existingSbox.name)}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            sboxComparisonResults.classList.remove('hidden');
+            sboxComparisonResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    function renderComparisonRow(label, customVal, existingVal, compareType, target) {
+        let customBetter = false;
+        let existingBetter = false;
+        
+        const customNum = parseFloat(customVal);
+        const existingNum = parseFloat(existingVal);
+
+        if (compareType === 'higher') {
+            if (customNum > existingNum) customBetter = true;
+            else if (existingNum > customNum) existingBetter = true;
+        } else if (compareType === 'lower') {
+            if (customNum < existingNum) customBetter = true;
+            else if (existingNum < customNum) existingBetter = true;
+        } else if (compareType === 'closer_to_0.5') {
+            const customDiff = Math.abs(customNum - 0.5);
+            const existingDiff = Math.abs(existingNum - 0.5);
+            if (customDiff < existingDiff) customBetter = true;
+            else if (existingDiff < customDiff) existingBetter = true;
+        }
+
+        const customClass = customBetter ? 'text-emerald-400 font-bold' : (existingBetter ? 'text-slate-400' : 'text-white');
+        const existingClass = existingBetter ? 'text-emerald-400 font-bold' : (customBetter ? 'text-slate-400' : 'text-white');
+        const customIcon = customBetter ? '<i class="fas fa-trophy text-yellow-400 ml-1 text-xs"></i>' : '';
+        const existingIcon = existingBetter ? '<i class="fas fa-trophy text-yellow-400 ml-1 text-xs"></i>' : '';
+
+        return `
+            <div class="grid grid-cols-3 gap-2 text-center items-center p-2 bg-slate-800/30 rounded-lg">
+                <div class="text-sm ${customClass}">${customVal}${customIcon}</div>
+                <div class="text-xs text-slate-400">${label}<br><span class="text-xs text-slate-600">(${target})</span></div>
+                <div class="text-sm ${existingClass}">${existingVal}${existingIcon}</div>
+            </div>
+        `;
+    }
+
+    function renderComparisonBar(label, customVal, existingVal, maxVal, customName, existingName) {
+        const customPercent = Math.min((customVal / maxVal) * 100, 100);
+        const existingPercent = Math.min((existingVal / maxVal) * 100, 100);
+
+        return `
+            <div class="p-3 bg-slate-800/30 rounded-lg">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>${label}</span>
+                    <span>Max: ${maxVal}</span>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-teal-300 w-16 truncate" title="${customName}">Custom</span>
+                        <div class="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-500" style="width: ${customPercent}%"></div>
+                        </div>
+                        <span class="text-xs text-white w-12 text-right">${typeof customVal === 'number' ? customVal.toFixed(1) : customVal}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-purple-300 w-16 truncate" title="${existingName}">Existing</span>
+                        <div class="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500" style="width: ${existingPercent}%"></div>
+                        </div>
+                        <span class="text-xs text-white w-12 text-right">${typeof existingVal === 'number' ? existingVal.toFixed(1) : existingVal}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function generateComparisonSummary(customName, existingName, customMetrics, existingMetrics) {
+        let customWins = 0;
+        let existingWins = 0;
+        const details = [];
+
+        // Nonlinearity (higher is better) - Use NL for existing
+        if (customMetrics.nonlinearity > existingMetrics.NL) {
+            customWins++;
+            details.push(`<span class="text-teal-300">${customName}</span> memiliki Nonlinearity lebih tinggi (${customMetrics.nonlinearity} vs ${existingMetrics.NL})`);
+        } else if (existingMetrics.NL > customMetrics.nonlinearity) {
+            existingWins++;
+            details.push(`<span class="text-purple-300">${existingName}</span> memiliki Nonlinearity lebih tinggi (${existingMetrics.NL} vs ${customMetrics.nonlinearity})`);
+        }
+
+        // SAC (closer to 0.5 is better) - Use SAC for existing
+        const customSacDiff = Math.abs(customMetrics.sac - 0.5);
+        const existingSacDiff = Math.abs(existingMetrics.SAC - 0.5);
+        if (customSacDiff < existingSacDiff) {
+            customWins++;
+            details.push(`<span class="text-teal-300">${customName}</span> memiliki SAC lebih baik (mendekati 0.5)`);
+        } else if (existingSacDiff < customSacDiff) {
+            existingWins++;
+            details.push(`<span class="text-purple-300">${existingName}</span> memiliki SAC lebih baik (mendekati 0.5)`);
+        }
+
+        // LAP (lower is better) - Use LAP for existing
+        if (customMetrics.lap < existingMetrics.LAP) {
+            customWins++;
+            details.push(`<span class="text-teal-300">${customName}</span> memiliki LAP lebih rendah (lebih aman)`);
+        } else if (existingMetrics.LAP < customMetrics.lap) {
+            existingWins++;
+            details.push(`<span class="text-purple-300">${existingName}</span> memiliki LAP lebih rendah (lebih aman)`);
+        }
+
+        // DAP (lower is better) - Use DAP for existing
+        if (customMetrics.dap < existingMetrics.DAP) {
+            customWins++;
+            details.push(`<span class="text-teal-300">${customName}</span> memiliki DAP lebih rendah (lebih aman)`);
+        } else if (existingMetrics.DAP < customMetrics.dap) {
+            existingWins++;
+            details.push(`<span class="text-purple-300">${existingName}</span> memiliki DAP lebih rendah (lebih aman)`);
+        }
+
+        // Fixed Points (lower is better) - Use TO for existing (Total Outliers)
+        const existingFP = existingMetrics.TO || 0;
+        if (customMetrics.fixed_points < existingFP) {
+            customWins++;
+            details.push(`<span class="text-teal-300">${customName}</span> memiliki Fixed Points lebih sedikit`);
+        } else if (existingFP < customMetrics.fixed_points) {
+            existingWins++;
+            details.push(`<span class="text-purple-300">${existingName}</span> memiliki Fixed Points lebih sedikit`);
+        }
+
+        let summaryHtml = `<div class="flex items-center gap-4 mb-3">`;
+        summaryHtml += `<div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-full bg-teal-400"></span><span class="text-teal-300 font-bold">${customName}: ${customWins}</span></div>`;
+        summaryHtml += `<div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-full bg-purple-400"></span><span class="text-purple-300 font-bold">${existingName}: ${existingWins}</span></div>`;
+        summaryHtml += `</div>`;
+
+        if (customWins > existingWins) {
+            summaryHtml += `<p class="text-emerald-400 font-semibold mb-2"><i class="fas fa-trophy text-yellow-400 mr-2"></i>${customName} lebih unggul secara keseluruhan!</p>`;
+        } else if (existingWins > customWins) {
+            summaryHtml += `<p class="text-purple-400 font-semibold mb-2"><i class="fas fa-trophy text-yellow-400 mr-2"></i>${existingName} lebih unggul secara keseluruhan!</p>`;
+        } else {
+            summaryHtml += `<p class="text-cyan-400 font-semibold mb-2"><i class="fas fa-balance-scale mr-2"></i>Kedua S-Box memiliki kualitas yang seimbang!</p>`;
+        }
+
+        summaryHtml += `<ul class="text-xs text-slate-400 space-y-1 mt-2">`;
+        details.forEach(d => {
+            summaryHtml += `<li class="flex items-start gap-2"><i class="fas fa-angle-right text-cyan-400 mt-0.5"></i>${d}</li>`;
+        });
+        summaryHtml += `</ul>`;
+
+        return summaryHtml;
+    }
+
+    // Call this when custom S-Box is uploaded
+    populateCompareSboxSelector();
 });
 

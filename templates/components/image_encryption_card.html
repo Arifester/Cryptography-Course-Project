@@ -99,30 +99,67 @@
         </div>
 
         <!-- Histogram Comparison -->
-        <div id="histogramContainer" class="mt-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700" style="display: none;">
-            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <i class="fas fa-chart-bar text-purple-400"></i>
+        <div id="histogramContainer" class="mt-6 p-5 bg-gradient-to-br from-slate-800/70 to-slate-900/70 rounded-xl border border-purple-500/30 shadow-lg" style="display: none;">
+            <h4 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                <div class="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-white text-sm"></i>
+                </div>
                 Histogram Comparison
-                <span class="ml-auto text-xs text-slate-400 font-normal">
+                <span class="ml-auto px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
                     <i class="fas fa-info-circle mr-1"></i>
-                    Uniform distribution = better encryption
+                    Uniform = Secure
                 </span>
             </h4>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-2">
-                    <p class="text-xs text-slate-400 text-center">Original Image</p>
-                    <div class="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700 p-1">
-                        <img id="originalHistogram" class="w-full h-auto">
+            
+            <!-- Full Width Histograms Stacked -->
+            <div class="space-y-4">
+                <!-- First Histogram (Original/Encrypted based on operation) -->
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                    <div class="flex items-center justify-between mb-2">
+                        <p id="histogramTitle1" class="text-sm font-semibold text-white flex items-center gap-2">
+                            <span class="w-2 h-2 bg-blue-400 rounded-full"></span>
+                            Original Image Histogram
+                        </p>
+                        <span id="histogramDesc1" class="text-xs text-slate-500">Shows natural pixel distribution patterns</span>
                     </div>
-                    <p class="text-xs text-slate-500 text-center italic">Shows natural pixel patterns</p>
-                </div>
-                <div class="space-y-2">
-                    <p class="text-xs text-slate-400 text-center">Encrypted Image</p>
-                    <div class="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700 p-1">
-                        <img id="encryptedHistogram" class="w-full h-auto">
+                    <div class="bg-slate-950/50 rounded-lg overflow-hidden border border-slate-700/50 p-2">
+                        <img id="originalHistogram" class="w-full h-auto min-h-[180px] object-contain">
                     </div>
-                    <p class="text-xs text-slate-500 text-center italic">Should be uniformly flat</p>
                 </div>
+                
+                <!-- Arrow indicator -->
+                <div class="flex items-center justify-center">
+                    <div class="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full border border-emerald-500/30">
+                        <i class="fas fa-arrow-down text-emerald-400"></i>
+                        <span id="histogramArrowText" class="text-xs text-emerald-300 font-medium">After S-Box Encryption</span>
+                        <i class="fas fa-arrow-down text-emerald-400"></i>
+                    </div>
+                </div>
+                
+                <!-- Second Histogram (Encrypted/Decrypted based on operation) -->
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-emerald-500/30">
+                    <div class="flex items-center justify-between mb-2">
+                        <p id="histogramTitle2" class="text-sm font-semibold text-emerald-300 flex items-center gap-2">
+                            <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                            Encrypted Image Histogram
+                        </p>
+                        <span id="histogramDesc2" class="text-xs text-emerald-400/70">Should be uniformly flat (random)</span>
+                    </div>
+                    <div class="bg-slate-950/50 rounded-lg overflow-hidden border border-emerald-500/20 p-2">
+                        <img id="encryptedHistogram" class="w-full h-auto min-h-[180px] object-contain">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Explanation Footer -->
+            <div id="histogramExplanation" class="mt-4 p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+                <p class="text-xs text-indigo-300 flex items-start gap-2">
+                    <i class="fas fa-lightbulb text-yellow-400 mt-0.5"></i>
+                    <span id="histogramExplanationText">
+                        <strong>Good encryption</strong> produces a <strong>flat/uniform histogram</strong> where all pixel values (0-255) 
+                        appear with equal frequency. This means attackers cannot extract statistical information from the encrypted image.
+                    </span>
+                </p>
             </div>
         </div>
 
