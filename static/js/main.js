@@ -785,6 +785,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use selected encryption matrix
             const sboxId = selectedEncryptData.id;
             
+            // Get encryption key
+            const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
+            if (!encryptionKey.trim()) {
+                alert('Please enter an encryption key!');
+                return;
+            }
+            
             // Show loading
             imageLoadingIndicator.classList.remove('hidden');
             encryptImageBtn.disabled = true;
@@ -794,6 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData();
                 formData.append('image', uploadedImageFile);
                 formData.append('sbox_id', sboxId);
+                formData.append('key', encryptionKey);
 
                 const response = await fetch('/encrypt-image', {
                     method: 'POST',
@@ -837,6 +845,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use selected encryption matrix
             const sboxId = selectedEncryptData.id;
             
+            // Get encryption key
+            const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
+            if (!encryptionKey.trim()) {
+                alert('Please enter an encryption key!');
+                return;
+            }
+            
             // Show loading
             imageLoadingIndicator.classList.remove('hidden');
             encryptImageBtn.disabled = true;
@@ -846,6 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formData = new FormData();
                 formData.append('image', uploadedImageFile);
                 formData.append('sbox_id', sboxId);
+                formData.append('key', encryptionKey);
 
                 const response = await fetch('/decrypt-image', {
                     method: 'POST',
