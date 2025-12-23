@@ -820,6 +820,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Display metrics
                     displayImageMetrics(data.metrics);
                     imageMetrics.style.display = 'block';
+                    
+                    // Display histograms
+                    const histogramContainer = document.getElementById('histogramContainer');
+                    const originalHistogram = document.getElementById('originalHistogram');
+                    const encryptedHistogram = document.getElementById('encryptedHistogram');
+                    
+                    if (histogramContainer && originalHistogram && encryptedHistogram) {
+                        originalHistogram.src = data.original_histogram;
+                        encryptedHistogram.src = data.encrypted_histogram;
+                        histogramContainer.style.display = 'block';
+                    }
                 } else {
                     alert('Encryption failed: ' + data.error);
                 }
@@ -877,6 +888,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     resultLabel.textContent = 'Decrypted';
                     if (downloadImageBtn) downloadImageBtn.style.display = 'inline-block';
                     imageMetrics.style.display = 'none';
+                    
+                    // Hide histogram on decrypt
+                    const histogramContainer = document.getElementById('histogramContainer');
+                    if (histogramContainer) histogramContainer.style.display = 'none';
                 } else {
                     alert('Decryption failed: ' + data.error);
                 }

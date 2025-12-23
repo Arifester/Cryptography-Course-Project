@@ -98,6 +98,34 @@
             </div>
         </div>
 
+        <!-- Histogram Comparison -->
+        <div id="histogramContainer" class="mt-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700" style="display: none;">
+            <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                <i class="fas fa-chart-bar text-purple-400"></i>
+                Histogram Comparison
+                <span class="ml-auto text-xs text-slate-400 font-normal">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Uniform distribution = better encryption
+                </span>
+            </h4>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-2">
+                    <p class="text-xs text-slate-400 text-center">Original Image</p>
+                    <div class="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700 p-1">
+                        <img id="originalHistogram" class="w-full h-auto">
+                    </div>
+                    <p class="text-xs text-slate-500 text-center italic">Shows natural pixel patterns</p>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-xs text-slate-400 text-center">Encrypted Image</p>
+                    <div class="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700 p-1">
+                        <img id="encryptedHistogram" class="w-full h-auto">
+                    </div>
+                    <p class="text-xs text-slate-500 text-center italic">Should be uniformly flat</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Metrics Display -->
         <div id="imageMetrics" class="mt-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700" style="display: none;">
             <h4 class="text-sm font-bold text-white mb-3 flex items-center gap-2">

@@ -317,6 +317,56 @@ def image_to_base64(img_array):
     img_str = base64.b64encode(buffer.getvalue()).decode()
     return f"data:image/png;base64,{img_str}"
 
+def generate_histogram_image(img_array, title="Histogram"):
+    """Generate histogram image as base64
+    Creates a visual histogram showing pixel distribution per channel
+    """
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend
+    import matplotlib.pyplot as plt
+    
+    # Create figure with dark theme
+    fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+    fig.patch.set_facecolor('#1e293b')  # slate-800
+    ax.set_facecolor('#0f172a')  # slate-900
+    
+    if len(img_array.shape) == 3:
+        # Color image - plot RGB histograms
+        colors = ['#ef4444', '#22c55e', '#3b82f6']  # red, green, blue
+        labels = ['Red', 'Green', 'Blue']
+        
+        for i, (color, label) in enumerate(zip(colors, labels)):
+            hist, bins = np.histogram(img_array[:, :, i].flatten(), bins=256, range=(0, 256))
+            ax.plot(bins[:-1], hist, color=color, alpha=0.7, linewidth=1, label=label)
+            ax.fill_between(bins[:-1], hist, alpha=0.3, color=color)
+    else:
+        # Grayscale image
+        hist, bins = np.histogram(img_array.flatten(), bins=256, range=(0, 256))
+        ax.plot(bins[:-1], hist, color='#a78bfa', linewidth=1, label='Intensity')
+        ax.fill_between(bins[:-1], hist, alpha=0.4, color='#a78bfa')
+    
+    ax.set_xlabel('Pixel Value', color='#94a3b8', fontsize=8)
+    ax.set_ylabel('Frequency', color='#94a3b8', fontsize=8)
+    ax.set_title(title, color='white', fontsize=10, fontweight='bold')
+    ax.tick_params(colors='#64748b', labelsize=7)
+    ax.spines['bottom'].set_color('#475569')
+    ax.spines['top'].set_color('#475569')
+    ax.spines['left'].set_color('#475569')
+    ax.spines['right'].set_color('#475569')
+    ax.set_xlim(0, 255)
+    ax.legend(loc='upper right', fontsize=7, facecolor='#1e293b', edgecolor='#475569', labelcolor='white')
+    
+    plt.tight_layout()
+    
+    # Save to buffer
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format='png', facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buffer.seek(0)
+    
+    img_str = base64.b64encode(buffer.getvalue()).decode()
+    return f"data:image/png;base64,{img_str}"
+
 @app.route('/')
 def index():
     # Load data dari file JSON
@@ -370,10 +420,16 @@ def encrypt_image_route():
         encrypted_b64 = image_to_base64(encrypted)
         original_b64 = image_to_base64(img_array)
         
+        # Generate histograms
+        original_histogram = generate_histogram_image(img_array, "Original Histogram")
+        encrypted_histogram = generate_histogram_image(encrypted, "Encrypted Histogram")
+        
         return jsonify({
             'success': True,
             'encrypted_image': encrypted_b64,
             'original_image': original_b64,
+            'original_histogram': original_histogram,
+            'encrypted_histogram': encrypted_histogram,
             'metrics': {
                 'original_entropy': round(original_entropy, 6),
                 'encrypted_entropy': round(encrypted_entropy, 6),
