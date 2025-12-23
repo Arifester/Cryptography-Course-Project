@@ -233,6 +233,70 @@ def decrypt_image_route():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/team-photo/<filename>')
+def team_photo(filename):
+    """Serve resized team member photos"""
+    try:
+        from PIL import ImageOps
+        
+        # Target size for team cards (w:112px x h:144px at 2x for retina = 224x288)
+        target_width = 224
+        target_height = 288
+        
+        # Map filename to actual image file
+        image_map = {
+            'huda': 'huda.JPG',
+            'firda': 'firda satria.png',
+            'arif': 'arif.jpg',
+            'tatak': 'tatak.jpeg'
+        }
+        
+        actual_filename = image_map.get(filename)
+        if not actual_filename:
+            return "Image not found", 404
+        
+        image_path = os.path.join(app.static_folder, 'images', actual_filename)
+        
+        if not os.path.exists(image_path):
+            return "Image not found", 404
+        
+        # Open and resize image
+        img = Image.open(image_path)
+        
+        # Fix EXIF orientation (handles rotated photos from phones)
+        img = ImageOps.exif_transpose(img)
+        
+        # Convert to RGB if necessary (for PNG with transparency)
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        
+        # Calculate crop to maintain aspect ratio and focus on top (face)
+        img_ratio = img.width / img.height
+        target_ratio = target_width / target_height
+        
+        if img_ratio > target_ratio:
+            # Image is wider - crop sides
+            new_width = int(img.height * target_ratio)
+            left = (img.width - new_width) // 2
+            img = img.crop((left, 0, left + new_width, img.height))
+        else:
+            # Image is taller - crop bottom (keep top/face)
+            new_height = int(img.width / target_ratio)
+            img = img.crop((0, 0, img.width, new_height))
+        
+        # Resize to target
+        img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        # Save to buffer
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=70)
+        buffer.seek(0)
+        
+        from flask import send_file
+        return send_file(buffer, mimetype='image/jpeg')
+    except Exception as e:
+        return str(e), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
     
