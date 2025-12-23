@@ -115,8 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sboxGrid: document.getElementById('sboxGrid'),
         tooltip: document.getElementById('floatingTooltip'),
         inputPlain: document.getElementById('inputPlain'),
-        outCipher: document.getElementById('outputCipher'),
-        outDec: document.getElementById('outputDecrypted'),
+        outCipher: document.getElementById('outputResult'),
+        outDec: document.getElementById('outputResult'),
+        outputLabel: document.getElementById('outputLabel'),
         downloadCipherBtn: document.getElementById('downloadCipherBtn'),
         toggleHeatmap: document.getElementById('toggleHeatmap'),
         // Metrics Map
@@ -393,43 +394,223 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function doCrypto() {
-        const txt = els.inputPlain.value;
+        // This function is now deprecated - using async API calls instead
+        // Keep for backward compatibility but show placeholder text
+        const txt = els.inputPlain?.value;
         if(!txt) { 
-            els.outCipher.innerHTML = '<span class="text-slate-500 italic">Hasil enkripsi akan muncul di sini...</span>'; 
-            els.outDec.innerHTML = '<span class="text-slate-500 italic">Hasil dekripsi akan muncul di sini...</span>'; 
+            if (els.outCipher) els.outCipher.innerHTML = '<span class="text-slate-500 italic">Hasil akan muncul di sini...</span>'; 
             return; 
         }
+        // Show hint to use encrypt button
+        if (els.outCipher) {
+            els.outCipher.innerHTML = '<span class="text-slate-500 italic">Klik tombol Encrypt atau Decrypt...</span>';
+        }
+    }
+    
+    // Enhanced Text Encryption using API
+    async function encryptTextEnhanced() {
+        const txt = els.inputPlain?.value;
+        if (!txt) {
+            alert('Please enter text to encrypt!');
+            return;
+        }
         
-        // Use selected encryption matrix or custom S-Box
-        let encryptSbox, encryptInverse;
+        // Get encryption key
+        const encryptionKey = document.getElementById('textEncryptionKey')?.value || 'cryptography2024';
+        if (!encryptionKey.trim()) {
+            alert('Please enter an encryption key!');
+            return;
+        }
         
+        // Get S-Box
+        let sboxId, customSboxData;
         if (useCustomSboxForText && savedCustomSbox) {
-            encryptSbox = savedCustomSbox.sbox;
-            encryptInverse = generateInverseSBoxFromArray(savedCustomSbox.sbox);
-        } else if (selectedEncryptData) {
-            encryptSbox = selectedEncryptData.sbox;
-            encryptInverse = generateInverseSBox(encryptSbox);
+            sboxId = 'custom';
+            customSboxData = savedCustomSbox.sbox;
         } else if (selectedTextEncryptData) {
-            encryptSbox = selectedTextEncryptData.sbox;
-            encryptInverse = generateInverseSBox(encryptSbox);
+            sboxId = selectedTextEncryptData.id;
+        } else if (selectedEncryptData) {
+            sboxId = selectedEncryptData.id;
         } else {
-            encryptSbox = candidatesData[0].sbox;
-            encryptInverse = generateInverseSBox(encryptSbox);
+            sboxId = candidatesData[0].id;
         }
         
-        // Encrypt
-        const ciph = txt.split('').map(c => encryptSbox[c.charCodeAt(0) % 256]);
-        const cipherHex = ciph.map(b => `<span class="inline-block px-1 py-0.5 bg-amber-500/10 rounded mx-0.5">${b.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('');
-        els.outCipher.innerHTML = cipherHex;
+        // Show loading
+        const encryptBtn = document.getElementById('encryptTextBtn');
+        if (encryptBtn) {
+            encryptBtn.disabled = true;
+            encryptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Encrypting...';
+        }
         
-        // Show Custom S-Box indicator
+        // Update output label
+        if (els.outputLabel) {
+            els.outputLabel.textContent = 'Ciphertext (Hex)';
+        }
+        
+        // Show download button
+        const downloadBtn = document.getElementById('downloadCipherBtn');
+        if (downloadBtn) {
+            downloadBtn.style.display = 'flex';
+        }
+        
+        try {
+            const response = await fetch('/encrypt-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    plaintext: txt,
+                    sbox_id: sboxId,
+                    key: encryptionKey,
+                    custom_sbox: customSboxData || null
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Display cipher in hex format with styling
+                const cipherHex = data.cipher_hex;
+                const hexDisplay = cipherHex.match(/.{2}/g).map(b => 
+                    `<span class="inline-block px-1 py-0.5 bg-amber-500/10 text-amber-300 rounded mx-0.5">${b}</span>`
+                ).join('');
+                
+                els.outCipher.innerHTML = hexDisplay;
+                
+                // Store cipher data for decryption
+                document.getElementById('cipherBytesData').value = JSON.stringify(data.cipher_bytes);
+                document.getElementById('originalLengthData').value = data.original_length;
+                
+                // Show Custom S-Box indicator
+                if (useCustomSboxForText && savedCustomSbox) {
+                    els.outCipher.innerHTML += `<div class="mt-2 text-xs text-teal-400"><i class="fas fa-magic mr-1"></i>Encrypted with: ${savedCustomSbox.name || 'Custom S-Box'}</div>`;
+                }
+                
+                // Show encryption info
+                els.outCipher.innerHTML += `<div class="mt-2 text-xs text-slate-400"><i class="fas fa-info-circle mr-1"></i>Padded: ${data.original_length} → ${data.padded_length} bytes (PKCS7)</div>`;
+            } else {
+                alert('Encryption failed: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Encryption failed: ' + error.message);
+        } finally {
+            if (encryptBtn) {
+                encryptBtn.disabled = false;
+                encryptBtn.innerHTML = '<i class="fas fa-lock"></i><span>Encrypt</span>';
+            }
+        }
+    }
+    
+    // Enhanced Text Decryption using API
+    async function decryptTextEnhanced() {
+        // Get input - check if it's hex ciphertext format
+        const inputText = els.inputPlain?.value?.trim();
+        const cipherBytesStr = document.getElementById('cipherBytesData')?.value;
+        const originalLength = parseInt(document.getElementById('originalLengthData')?.value) || null;
+        
+        if (!inputText) {
+            alert('Masukkan ciphertext hex untuk didekripsi!');
+            return;
+        }
+        
+        let cipherBytes = null;
+        let cipherHex = null;
+        let isHexInput = false;
+        
+        // Try to parse as hex ciphertext
+        const cleanedInput = inputText.replace(/[\s\n\r]/g, '').toUpperCase();
+        
+        // Check if input looks like hex (only 0-9 and A-F)
+        if (/^[0-9A-F]+$/.test(cleanedInput) && cleanedInput.length % 2 === 0 && cleanedInput.length >= 32) {
+            // Looks like hex ciphertext
+            cipherHex = cleanedInput;
+            isHexInput = true;
+            
+            // Convert hex to bytes
+            cipherBytes = [];
+            for (let i = 0; i < cipherHex.length; i += 2) {
+                cipherBytes.push(parseInt(cipherHex.substring(i, i + 2), 16));
+            }
+        } else {
+            // Input doesn't look like hex - show error
+            alert('Input tidak valid sebagai ciphertext!\n\nFormat yang benar: hex string (contoh: A1B2C3D4...)\n\nPastikan input adalah hasil enkripsi sebelumnya.');
+            return;
+        }
+        
+        // Get encryption key
+        const encryptionKey = document.getElementById('textEncryptionKey')?.value || 'cryptography2024';
+        if (!encryptionKey.trim()) {
+            alert('Please enter the decryption key!');
+            return;
+        }
+        
+        // Get S-Box (must be same as encryption)
+        let sboxId, customSboxData;
         if (useCustomSboxForText && savedCustomSbox) {
-            els.outCipher.innerHTML += `<div class="mt-2 text-xs text-teal-400"><i class="fas fa-magic mr-1"></i>Encrypted with: ${savedCustomSbox.name || 'Custom S-Box'}</div>`;
+            sboxId = 'custom';
+            customSboxData = savedCustomSbox.sbox;
+        } else if (selectedTextEncryptData) {
+            sboxId = selectedTextEncryptData.id;
+        } else if (selectedEncryptData) {
+            sboxId = selectedEncryptData.id;
+        } else {
+            sboxId = candidatesData[0].id;
         }
         
-        // Decrypt
-        const dec = ciph.map(b => String.fromCharCode(encryptInverse[b])).join('');
-        els.outDec.innerHTML = `<span class="text-emerald-300">${dec}</span>`;
+        // Show loading
+        const decryptBtn = document.getElementById('decryptTextBtn');
+        if (decryptBtn) {
+            decryptBtn.disabled = true;
+            decryptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Decrypting...';
+        }
+        
+        // Update output label
+        if (els.outputLabel) {
+            els.outputLabel.textContent = 'Decrypted Plaintext';
+        }
+        
+        // Hide download button for decryption result
+        const downloadBtn = document.getElementById('downloadCipherBtn');
+        if (downloadBtn) {
+            downloadBtn.style.display = 'none';
+        }
+        
+        try {
+            const requestBody = {
+                cipher_bytes: cipherBytes,
+                sbox_id: sboxId,
+                key: encryptionKey,
+                custom_sbox: customSboxData || null
+            };
+            
+            const response = await fetch('/decrypt-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                els.outDec.innerHTML = `<span class="text-emerald-300 text-base">${data.plaintext}</span>`;
+                els.outDec.innerHTML += `<div class="mt-2 text-xs text-emerald-400"><i class="fas fa-check-circle mr-1"></i>Decryption successful!</div>`;
+            } else {
+                alert('Decryption failed: ' + data.error);
+                els.outDec.innerHTML = `<span class="text-red-400">Decryption failed: ${data.error}</span>`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Decryption failed: ' + error.message);
+        } finally {
+            if (decryptBtn) {
+                decryptBtn.disabled = false;
+                decryptBtn.innerHTML = '<i class="fas fa-unlock"></i><span>Decrypt</span>';
+            }
+        }
     }
 
     function updateUI(idx) {
@@ -462,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMetrics(currentData.metrics);
         renderMatrix(currentData.matrix);
         renderSbox(currentData.sbox);
-        doCrypto();
+        // Don't auto-run crypto - user needs to click encrypt button
     }
 
     // 5. Initialization
@@ -605,9 +786,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedTextEncryptData = candidatesData[+value];
                 selectedEncryptData = selectedTextEncryptData; // Sync for crypto function
             }
-            // Re-run crypto with new matrix
-            if (els.inputPlain) {
-                doCrypto();
+            // Clear cipher data when S-Box changes
+            if (document.getElementById('cipherBytesData')) {
+                document.getElementById('cipherBytesData').value = '';
+                document.getElementById('originalLengthData').value = '';
+            }
+            // Update hint text
+            if (els.outCipher) {
+                els.outCipher.innerHTML = '<span class="text-slate-500 italic">Hasil akan muncul di sini...</span>';
+            }
+            // Reset output label
+            if (els.outputLabel) {
+                els.outputLabel.textContent = 'Output';
             }
         }, true);
     }
@@ -629,14 +819,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     if (els.inputPlain) {
-        els.inputPlain.addEventListener('input', doCrypto);
+        // Just show hint on input, actual encryption needs button click
+        els.inputPlain.addEventListener('input', () => {
+            const txt = els.inputPlain.value;
+            if (!txt) {
+                if (els.outCipher) els.outCipher.innerHTML = '<span class="text-slate-500 italic">Hasil akan muncul di sini...</span>';
+                // Reset output label
+                if (els.outputLabel) {
+                    els.outputLabel.textContent = 'Output';
+                }
+            }
+        });
     }
+    
+    // Encrypt Text Button
+    const encryptTextBtn = document.getElementById('encryptTextBtn');
+    if (encryptTextBtn) {
+        encryptTextBtn.addEventListener('click', encryptTextEnhanced);
+    }
+    
+    // Decrypt Text Button
+    const decryptTextBtn = document.getElementById('decryptTextBtn');
+    if (decryptTextBtn) {
+        decryptTextBtn.addEventListener('click', decryptTextEnhanced);
+    }
+    
+    // Text Encryption Key Visibility Toggle
+    window.toggleTextKeyVisibility = function() {
+        const keyInput = document.getElementById('textEncryptionKey');
+        const icon = document.getElementById('textKeyVisibilityIcon');
+        if (keyInput && icon) {
+            if (keyInput.type === 'password') {
+                keyInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                keyInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    };
+    
+    // Image Encryption Key Visibility Toggle (global function)
+    window.toggleKeyVisibility = function() {
+        const keyInput = document.getElementById('encryptionKey');
+        const icon = document.getElementById('keyVisibilityIcon');
+        if (keyInput && icon) {
+            if (keyInput.type === 'password') {
+                keyInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                keyInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+    };
 
     // Download Cipher Button
     if (els.downloadCipherBtn) {
         els.downloadCipherBtn.addEventListener('click', () => {
             const cipherText = els.outCipher.textContent;
-            if (cipherText && cipherText !== 'Hasil enkripsi akan muncul di sini...') {
+            if (cipherText && cipherText !== 'Hasil enkripsi akan muncul di sini...' && cipherText !== 'Klik tombol "Encrypt Text" untuk mengenkripsi...') {
                 // Extract hex values only (remove HTML tags)
                 const hexValues = els.outCipher.innerText;
                 

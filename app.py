@@ -868,6 +868,239 @@ def estimate_nonlinearity(sbox):
     nl = int(max_nl * (differences / (256 * 256)))
     return min(nl, max_nl)
 
+# ============================================
+# ENHANCED TEXT ENCRYPTION WITH PROPER AES-LIKE OPERATIONS
+# ============================================
+
+def encrypt_text_enhanced(plaintext, sbox, key="cryptography2024"):
+    """
+    Enhanced text encryption with confusion and diffusion
+    
+    Steps:
+    1. Generate seed from key
+    2. Convert text to bytes
+    3. Pad to multiple of 16 bytes (AES-like block)
+    4. For each round:
+       a. S-Box substitution (confusion)
+       b. XOR with key stream (diffusion)
+       c. Permutation within blocks
+       d. CBC-like chaining
+    5. Return encrypted bytes as hex
+    """
+    # Generate seed from key
+    key_hash = hashlib.sha256(key.encode()).hexdigest()
+    seed = int(key_hash[:8], 16) / (16**8)
+    seed = max(0.1, min(0.9, seed))
+    
+    # Convert to bytes
+    data = [ord(c) % 256 for c in plaintext]
+    
+    # Pad to multiple of 16 (AES block size)
+    original_length = len(data)
+    padding_length = (16 - (len(data) % 16)) % 16
+    if padding_length == 0:
+        padding_length = 16  # Always add padding
+    data.extend([padding_length] * padding_length)  # PKCS7 padding
+    
+    data = np.array(data, dtype=np.uint8)
+    length = len(data)
+    
+    num_rounds = 3
+    
+    for round_num in range(num_rounds):
+        round_seed = (seed + round_num * 0.1) % 0.9 + 0.05
+        
+        # Step 1: S-Box Substitution (Confusion)
+        data = np.array([sbox[b] for b in data], dtype=np.uint8)
+        
+        # Step 2: XOR with Key Stream (Diffusion)
+        key_stream = generate_key_stream(sbox, round_seed, length)
+        data = np.bitwise_xor(data, key_stream)
+        
+        # Step 3: Block Permutation (Diffusion)
+        # Permute within 16-byte blocks
+        perm = generate_chaotic_sequence(round_seed, 16)
+        perm_indices = np.argsort(perm)
+        
+        permuted = np.zeros_like(data)
+        num_blocks = length // 16
+        for block in range(num_blocks):
+            start = block * 16
+            for i in range(16):
+                permuted[start + perm_indices[i]] = data[start + i]
+        data = permuted
+        
+        # Step 4: CBC-like Chaining
+        for i in range(1, length):
+            data[i] = data[i] ^ data[i-1]
+        
+        # Step 5: Final S-Box
+        data = np.array([sbox[b] for b in data], dtype=np.uint8)
+    
+    return data.tolist(), original_length
+
+def decrypt_text_enhanced(cipher_bytes, sbox, key="cryptography2024", original_length=None):
+    """
+    Decrypt text encrypted with enhanced method
+    Reverse all operations in reverse order
+    """
+    inv_sbox = generate_inverse_sbox(sbox)
+    
+    # Generate seed from key
+    key_hash = hashlib.sha256(key.encode()).hexdigest()
+    seed = int(key_hash[:8], 16) / (16**8)
+    seed = max(0.1, min(0.9, seed))
+    
+    data = np.array(cipher_bytes, dtype=np.uint8)
+    length = len(data)
+    
+    num_rounds = 3
+    
+    # Reverse rounds
+    for round_num in range(num_rounds - 1, -1, -1):
+        round_seed = (seed + round_num * 0.1) % 0.9 + 0.05
+        
+        # Reverse Step 5: Inverse S-Box
+        data = np.array([inv_sbox[b] for b in data], dtype=np.uint8)
+        
+        # Reverse Step 4: Reverse CBC chaining
+        temp = data.copy()
+        for i in range(length - 1, 0, -1):
+            data[i] = temp[i] ^ temp[i-1]
+        
+        # Reverse Step 3: Inverse block permutation
+        perm = generate_chaotic_sequence(round_seed, 16)
+        perm_indices = np.argsort(perm)
+        inv_perm = np.argsort(perm_indices)
+        
+        permuted = np.zeros_like(data)
+        num_blocks = length // 16
+        for block in range(num_blocks):
+            start = block * 16
+            for i in range(16):
+                permuted[start + i] = data[start + perm_indices[i]]
+        data = permuted
+        
+        # Reverse Step 2: XOR with same key stream
+        key_stream = generate_key_stream(sbox, round_seed, length)
+        data = np.bitwise_xor(data, key_stream)
+        
+        # Reverse Step 1: Inverse S-Box
+        data = np.array([inv_sbox[b] for b in data], dtype=np.uint8)
+    
+    # Remove PKCS7 padding
+    if original_length:
+        data = data[:original_length]
+    else:
+        padding_length = data[-1]
+        if padding_length <= 16 and all(data[-padding_length:] == padding_length):
+            data = data[:-padding_length]
+    
+    # Convert back to string
+    try:
+        return ''.join([chr(b) for b in data])
+    except:
+        return data.tolist()
+
+
+@app.route('/encrypt-text', methods=['POST'])
+def encrypt_text_route():
+    """Encrypt text with enhanced AES-like encryption"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        plaintext = data.get('plaintext', '')
+        sbox_id = data.get('sbox_id', 'AES_STD')
+        encryption_key = data.get('key', 'cryptography2024')
+        custom_sbox = data.get('custom_sbox')  # Custom S-Box array
+        
+        if not plaintext:
+            return jsonify({'error': 'No plaintext provided'}), 400
+        
+        if not encryption_key.strip():
+            return jsonify({'error': 'Encryption key cannot be empty'}), 400
+        
+        # Get S-Box
+        if sbox_id == 'custom' and custom_sbox:
+            if not isinstance(custom_sbox, list) or len(custom_sbox) != 256:
+                return jsonify({'error': 'Invalid custom S-Box format'}), 400
+            sbox = custom_sbox
+        else:
+            sbox = get_sbox(sbox_id)
+            if not sbox:
+                return jsonify({'error': 'S-Box not found'}), 400
+        
+        # Encrypt
+        cipher_bytes, original_length = encrypt_text_enhanced(plaintext, sbox, encryption_key)
+        
+        # Convert to hex string
+        cipher_hex = ''.join([f'{b:02X}' for b in cipher_bytes])
+        
+        return jsonify({
+            'success': True,
+            'cipher_hex': cipher_hex,
+            'cipher_bytes': cipher_bytes,
+            'original_length': original_length,
+            'padded_length': len(cipher_bytes)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/decrypt-text', methods=['POST'])
+def decrypt_text_route():
+    """Decrypt text with enhanced AES-like decryption"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        cipher_hex = data.get('cipher_hex', '')
+        cipher_bytes = data.get('cipher_bytes')
+        sbox_id = data.get('sbox_id', 'AES_STD')
+        encryption_key = data.get('key', 'cryptography2024')
+        original_length = data.get('original_length')
+        custom_sbox = data.get('custom_sbox')  # Custom S-Box array
+        
+        if not encryption_key.strip():
+            return jsonify({'error': 'Encryption key cannot be empty'}), 400
+        
+        # Convert hex to bytes if needed
+        if cipher_bytes:
+            cipher = cipher_bytes
+        elif cipher_hex:
+            try:
+                cipher = [int(cipher_hex[i:i+2], 16) for i in range(0, len(cipher_hex), 2)]
+            except ValueError:
+                return jsonify({'error': 'Invalid hex format'}), 400
+        else:
+            return jsonify({'error': 'No ciphertext provided'}), 400
+        
+        # Get S-Box
+        if sbox_id == 'custom' and custom_sbox:
+            if not isinstance(custom_sbox, list) or len(custom_sbox) != 256:
+                return jsonify({'error': 'Invalid custom S-Box format'}), 400
+            sbox = custom_sbox
+        else:
+            sbox = get_sbox(sbox_id)
+            if not sbox:
+                return jsonify({'error': 'S-Box not found'}), 400
+        
+        # Decrypt
+        plaintext = decrypt_text_enhanced(cipher, sbox, encryption_key, original_length)
+        
+        return jsonify({
+            'success': True,
+            'plaintext': plaintext
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 def calculate_sac(sbox):
     """Calculate SAC (Strict Avalanche Criterion)"""
     total = 0

@@ -1,86 +1,109 @@
-<!-- Interactive Encryption Demo Card -->
-<div class="group relative overflow-hidden bg-gradient-to-br from-slate-800/80 to-indigo-900/30 backdrop-blur-sm p-6 rounded-2xl border border-indigo-500/20 hover:border-indigo-500/40 transition-all duration-300 animate-scale-in" style="animation-delay: 0.1s;">
-    <!-- Animated Background -->
-    <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-indigo-500/5 bg-[length:200%_100%] animate-shimmer"></div>
-    
-    <!-- Header -->
-    <div class="relative flex items-center justify-between mb-6">
-        <h3 class="font-bold text-white flex items-center gap-3">
-            <div class="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+<!-- Interactive Text Encryption Demo Card -->
+<div class="card-glass p-6 rounded-2xl animate-slide-in">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
                 <i class="fas fa-lock text-white"></i>
             </div>
             <div>
-                <span class="block">Live Encryption</span>
-                <span class="text-xs text-slate-400 font-normal">Uji S-Box secara real-time</span>
+                <h3 class="text-xl font-bold text-white">Text Encryption</h3>
+                <p class="text-xs text-slate-400">Enhanced encryption with confusion & diffusion</p>
             </div>
-        </h3>
-        <div class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-            <span class="text-[10px] font-medium text-emerald-300">Live</span>
+        </div>
+        <div class="group/tooltip relative">
+            <span class="px-2 py-1 text-xs bg-emerald-600/30 text-emerald-300 rounded-full border border-emerald-500/30 cursor-help">
+                <i class="fas fa-shield-alt mr-1"></i>AES-like
+            </span>
+            <div class="tooltip-content absolute right-0 top-full mt-2 w-64 p-3 bg-slate-900/95 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-50 text-xs text-slate-300">
+                <p class="font-semibold text-white mb-1">Enhanced Encryption Features:</p>
+                <ul class="list-disc list-inside space-y-1">
+                    <li>S-Box substitution (confusion)</li>
+                    <li>XOR key stream mixing</li>
+                    <li>Block permutation (diffusion)</li>
+                    <li>CBC-like chaining</li>
+                    <li>Multiple rounds (3x)</li>
+                    <li>PKCS7 padding</li>
+                </ul>
+            </div>
         </div>
     </div>
-    
-    <div class="relative space-y-5">
-        <!-- Input -->
-        <div class="group/input">
-            <label class="flex items-center gap-2 text-[10px] uppercase font-bold text-indigo-300 tracking-wider mb-2">
-                <span class="w-5 h-5 bg-indigo-500/20 rounded-md flex items-center justify-center text-indigo-400">1</span>
-                Plaintext Input
-            </label>
+
+    <div class="space-y-4">
+        <!-- Encryption Key Input -->
+        <div class="relative">
+            <label class="text-xs text-slate-400 mb-1.5 block">Encryption Key</label>
             <div class="relative">
-                <input type="text" id="inputPlain" placeholder="Ketik pesan rahasia..." 
-                    class="w-full p-4 text-sm bg-slate-900/70 border-2 border-slate-700/50 rounded-xl focus:outline-none focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/20 font-mono text-white placeholder-slate-500 shadow-inner transition-all">
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    <i class="fas fa-keyboard"></i>
-                </div>
+                <i class="fas fa-key absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                <input type="password" id="textEncryptionKey" 
+                       value="cryptography2024"
+                       placeholder="Enter encryption key..."
+                       class="w-full pl-9 pr-10 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono">
+                <button type="button" onclick="toggleTextKeyVisibility()" 
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors z-50">
+                    <i class="fas fa-eye" id="textKeyVisibilityIcon"></i>
+                </button>
             </div>
+            <p class="text-xs text-slate-500 mt-1">
+                <i class="fas fa-info-circle mr-1"></i>
+                Key must be same for encryption & decryption
+            </p>
         </div>
-        
-        <!-- Flow Arrow -->
-        <div class="flex items-center justify-center gap-2 text-slate-500">
-            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent"></div>
-            <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center border border-indigo-500/30">
-                <i class="fas fa-arrow-down text-indigo-400 text-xs animate-bounce"></i>
+
+        <!-- Input Field (for both plaintext and ciphertext) -->
+        <div class="relative">
+            <label class="text-xs text-slate-400 mb-1.5 block">Input (Plaintext / Ciphertext Hex)</label>
+            <div class="relative">
+                <i class="fas fa-edit absolute left-3 top-3 text-slate-500"></i>
+                <textarea id="inputPlain" 
+                       placeholder="Masukkan plaintext untuk enkripsi, atau ciphertext hex untuk dekripsi..."
+                       rows="3"
+                       class="w-full pl-9 pr-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono resize-none"></textarea>
             </div>
-            <span class="text-xs font-medium text-indigo-400">S-Box Transform</span>
-            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent"></div>
+            <p class="text-xs text-slate-500 mt-1">
+                <i class="fas fa-lightbulb mr-1 text-yellow-400"></i>
+                Untuk dekripsi, masukkan ciphertext dalam format hex (contoh: A1B2C3D4...)
+            </p>
         </div>
-        
-        <!-- Ciphertext -->
-        <div>
-            <label class="flex items-center gap-2 text-[10px] uppercase font-bold text-amber-300 tracking-wider mb-2">
-                <span class="w-5 h-5 bg-amber-500/20 rounded-md flex items-center justify-center text-amber-400">2</span>
-                Ciphertext (Hex)
-                <button id="downloadCipherBtn" class="ml-auto px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 text-xs rounded-lg transition-all flex items-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50">
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+            <button id="encryptTextBtn" 
+                    class="px-4 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/50 text-emerald-300 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+                <i class="fas fa-lock"></i>
+                <span>Encrypt</span>
+            </button>
+            <button id="decryptTextBtn" 
+                    class="px-4 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+                <i class="fas fa-unlock"></i>
+                <span>Decrypt</span>
+            </button>
+        </div>
+
+        <!-- Output Field -->
+        <div class="relative">
+            <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs text-slate-400" id="outputLabel">Output</label>
+                <button id="downloadCipherBtn" class="px-2 py-1 text-xs bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/50 text-amber-300 rounded transition-all flex items-center gap-1" style="display: none;">
                     <i class="fas fa-download text-xs"></i>
                     Download
                 </button>
-            </label>
-            <div id="outputCipher" class="w-full p-4 text-sm bg-slate-900/70 border-2 border-amber-500/30 rounded-xl font-mono text-amber-300 break-all min-h-[56px] flex items-center shadow-inner">
-                <span class="text-slate-500 italic">Hasil enkripsi akan muncul di sini...</span>
             </div>
+            <div id="outputResult" class="w-full p-3 min-h-[80px] bg-slate-800/50 border border-slate-600 rounded-lg font-mono text-sm break-all flex flex-wrap items-start content-start">
+                <span class="text-slate-500 italic">Hasil akan muncul di sini...</span>
+            </div>
+            <!-- Hidden storage for cipher data -->
+            <input type="hidden" id="cipherBytesData" value="">
+            <input type="hidden" id="originalLengthData" value="">
         </div>
 
-        <!-- Flow Arrow -->
-        <div class="flex items-center justify-center gap-2 text-slate-500">
-            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
-            <div class="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center border border-emerald-500/30">
-                <i class="fas fa-arrow-down text-emerald-400 text-xs animate-bounce" style="animation-delay: 0.2s;"></i>
-            </div>
-            <span class="text-xs font-medium text-emerald-400">Inverse S-Box</span>
-            <div class="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent"></div>
-        </div>
-
-        <!-- Decrypted -->
-        <div>
-            <label class="flex items-center gap-2 text-[10px] uppercase font-bold text-emerald-300 tracking-wider mb-2">
-                <span class="w-5 h-5 bg-emerald-500/20 rounded-md flex items-center justify-center text-emerald-400">3</span>
-                Recovered Plaintext
-                <i class="fas fa-check-circle text-emerald-400 ml-1"></i>
-            </label>
-            <div id="outputDecrypted" class="w-full p-4 text-sm bg-emerald-900/20 border-2 border-emerald-500/30 rounded-xl font-mono text-emerald-300 break-all min-h-[56px] flex items-center shadow-inner">
-                <span class="text-slate-500 italic">Hasil dekripsi akan muncul di sini...</span>
-            </div>
+        <!-- Encryption Info -->
+        <div class="p-3 bg-indigo-500/10 rounded-lg border border-indigo-500/20">
+            <p class="text-xs text-indigo-300 flex items-start gap-2">
+                <i class="fas fa-lightbulb text-yellow-400 mt-0.5"></i>
+                <span>
+                    <strong>Enhanced AES-like encryption:</strong> Menggunakan S-Box substitution, XOR key stream, block permutation, dan CBC-like chaining dengan 3 round untuk keamanan maksimal.
+                </span>
+            </p>
         </div>
     </div>
 </div>
