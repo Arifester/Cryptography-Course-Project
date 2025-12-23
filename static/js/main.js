@@ -5,6 +5,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store data globally for comparison feature
     window.sboxDataStore = candidatesData;
     
+    // ============================================
+    // CUSTOM S-BOX LOCALSTORAGE MANAGEMENT
+    // ============================================
+    const CUSTOM_SBOX_KEY = 'customSboxData';
+    
+    function saveCustomSboxToLocalStorage(sboxData) {
+        try {
+            localStorage.setItem(CUSTOM_SBOX_KEY, JSON.stringify(sboxData));
+            console.log('Custom S-Box saved to localStorage');
+            return true;
+        } catch (e) {
+            console.error('Failed to save Custom S-Box to localStorage:', e);
+            return false;
+        }
+    }
+    
+    function loadCustomSboxFromLocalStorage() {
+        try {
+            const data = localStorage.getItem(CUSTOM_SBOX_KEY);
+            if (data) {
+                return JSON.parse(data);
+            }
+        } catch (e) {
+            console.error('Failed to load Custom S-Box from localStorage:', e);
+        }
+        return null;
+    }
+    
+    function clearCustomSboxFromLocalStorage() {
+        localStorage.removeItem(CUSTOM_SBOX_KEY);
+    }
+    
+    function generateInverseSBoxFromArray(sbox) {
+        const inv = new Array(256).fill(0);
+        for (let i = 0; i < 256; i++) {
+            inv[sbox[i]] = i;
+        }
+        return inv;
+    }
+    
+    // Load Custom S-Box from localStorage on page load
+    let savedCustomSbox = loadCustomSboxFromLocalStorage();
+    
     // Hide loading overlay with animation
     setTimeout(() => {
         const loader = document.getElementById('loadingOverlay');
@@ -357,14 +400,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return; 
         }
         
-        // Use selected encryption matrix
-        const encryptSbox = selectedEncryptData.sbox;
-        const encryptInverse = generateInverseSBox(encryptSbox);
+        // Use selected encryption matrix or custom S-Box
+        let encryptSbox, encryptInverse;
+        
+        if (useCustomSboxForText && savedCustomSbox) {
+            encryptSbox = savedCustomSbox.sbox;
+            encryptInverse = generateInverseSBoxFromArray(savedCustomSbox.sbox);
+        } else if (selectedEncryptData) {
+            encryptSbox = selectedEncryptData.sbox;
+            encryptInverse = generateInverseSBox(encryptSbox);
+        } else if (selectedTextEncryptData) {
+            encryptSbox = selectedTextEncryptData.sbox;
+            encryptInverse = generateInverseSBox(encryptSbox);
+        } else {
+            encryptSbox = candidatesData[0].sbox;
+            encryptInverse = generateInverseSBox(encryptSbox);
+        }
         
         // Encrypt
         const ciph = txt.split('').map(c => encryptSbox[c.charCodeAt(0) % 256]);
         const cipherHex = ciph.map(b => `<span class="inline-block px-1 py-0.5 bg-amber-500/10 rounded mx-0.5">${b.toString(16).toUpperCase().padStart(2,'0')}</span>`).join('');
         els.outCipher.innerHTML = cipherHex;
+        
+        // Show Custom S-Box indicator
+        if (useCustomSboxForText && savedCustomSbox) {
+            els.outCipher.innerHTML += `<div class="mt-2 text-xs text-teal-400"><i class="fas fa-magic mr-1"></i>Encrypted with: ${savedCustomSbox.name || 'Custom S-Box'}</div>`;
+        }
         
         // Decrypt
         const dec = ciph.map(b => String.fromCharCode(encryptInverse[b])).join('');
@@ -406,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 5. Initialization
     // Helper function to populate selectors
-    function populateSelector(selectorElement, onChange) {
+    function populateSelector(selectorElement, onChange, includeCustom = false) {
         if (!selectorElement) return;
         
         const groupRef = document.createElement('optgroup'); 
@@ -424,7 +485,68 @@ document.addEventListener('DOMContentLoaded', () => {
         
         selectorElement.appendChild(groupRef);
         selectorElement.appendChild(groupGen);
+        
+        // Add Custom S-Box option if available
+        if (includeCustom && savedCustomSbox) {
+            addCustomSboxOption(selectorElement);
+        }
+        
         selectorElement.addEventListener('change', onChange);
+    }
+    
+    // Add Custom S-Box option to a selector
+    function addCustomSboxOption(selectorElement) {
+        if (!selectorElement) return;
+        
+        // Remove existing custom optgroup if any
+        const existingCustomGroup = selectorElement.querySelector('optgroup[data-custom="true"]');
+        if (existingCustomGroup) {
+            existingCustomGroup.remove();
+        }
+        
+        if (savedCustomSbox) {
+            const groupCustom = document.createElement('optgroup');
+            groupCustom.label = "🎨 Custom S-Box";
+            groupCustom.setAttribute('data-custom', 'true');
+            
+            const opt = document.createElement('option');
+            opt.value = 'custom';
+            opt.textContent = `✨ ${savedCustomSbox.name || 'Custom S-Box'}`;
+            opt.className = 'text-teal-400 font-semibold';
+            groupCustom.appendChild(opt);
+            
+            selectorElement.appendChild(groupCustom);
+        }
+    }
+    
+    // Update all encryption selectors with Custom S-Box option
+    function updateSelectorsWithCustomSbox() {
+        addCustomSboxOption(els.textEncryptSelector);
+        addCustomSboxOption(els.imageEncryptSelector);
+        
+        // Show notification
+        showCustomSboxNotification();
+    }
+    
+    // Show notification that Custom S-Box is available
+    function showCustomSboxNotification() {
+        // Create a toast notification
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in flex items-center gap-3';
+        toast.innerHTML = `
+            <i class="fas fa-check-circle text-xl"></i>
+            <div>
+                <p class="font-semibold">Custom S-Box Ready!</p>
+                <p class="text-xs text-teal-100">Tersedia di tab Text & Image Encryption</p>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     // Populate Exploration Matrix Selector
@@ -467,24 +589,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Track if using custom S-Box
+    let useCustomSboxForText = false;
+    let useCustomSboxForImage = false;
+
     // Populate Text Encryption Matrix Selector
     if (els.textEncryptSelector) {
         populateSelector(els.textEncryptSelector, (e) => {
-            selectedTextEncryptData = candidatesData[+e.target.value];
-            selectedEncryptData = selectedTextEncryptData; // Sync for crypto function
+            const value = e.target.value;
+            if (value === 'custom') {
+                useCustomSboxForText = true;
+                selectedTextEncryptData = null;
+            } else {
+                useCustomSboxForText = false;
+                selectedTextEncryptData = candidatesData[+value];
+                selectedEncryptData = selectedTextEncryptData; // Sync for crypto function
+            }
             // Re-run crypto with new matrix
             if (els.inputPlain) {
                 doCrypto();
             }
-        });
+        }, true);
     }
 
     // Populate Image Encryption Matrix Selector
     if (els.imageEncryptSelector) {
         populateSelector(els.imageEncryptSelector, (e) => {
-            selectedImageEncryptData = candidatesData[+e.target.value];
-            selectedEncryptData = selectedImageEncryptData; // Sync for image encryption
-        });
+            const value = e.target.value;
+            if (value === 'custom') {
+                useCustomSboxForImage = true;
+                selectedImageEncryptData = null;
+            } else {
+                useCustomSboxForImage = false;
+                selectedImageEncryptData = candidatesData[+value];
+                selectedEncryptData = selectedImageEncryptData; // Sync for image encryption
+            }
+        }, true);
     }
 
     // Event Listeners
@@ -767,6 +907,30 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedCompareData2 = candidatesData[1] || candidatesData[0];
     }
 
+    // Load Custom S-Box from localStorage on page load and update selectors
+    if (savedCustomSbox) {
+        console.log('Custom S-Box found in localStorage:', savedCustomSbox.name);
+        updateSelectorsWithCustomSbox();
+        
+        // Show a small indicator that Custom S-Box is available
+        const indicator = document.createElement('div');
+        indicator.className = 'fixed top-4 right-4 bg-gradient-to-r from-teal-600/90 to-cyan-600/90 text-white px-4 py-2 rounded-lg shadow-lg z-40 text-sm flex items-center gap-2';
+        indicator.innerHTML = `
+            <i class="fas fa-puzzle-piece"></i>
+            <span>Custom S-Box: <strong>${savedCustomSbox.name || 'Loaded'}</strong></span>
+            <button onclick="this.parentElement.remove()" class="ml-2 hover:text-cyan-200"><i class="fas fa-times"></i></button>
+        `;
+        document.body.appendChild(indicator);
+        
+        setTimeout(() => {
+            if (indicator.parentElement) {
+                indicator.style.opacity = '0';
+                indicator.style.transition = 'opacity 0.3s';
+                setTimeout(() => indicator.remove(), 300);
+            }
+        }, 5000);
+    }
+
     // ============================================
     // IMAGE ENCRYPTION FUNCTIONALITY
     // ============================================
@@ -817,8 +981,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Use selected image encryption matrix
-            const sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
+            // Check if using custom S-Box
+            let sboxId, customSboxData;
+            if (useCustomSboxForImage && savedCustomSbox) {
+                sboxId = 'custom';
+                customSboxData = savedCustomSbox.sbox;
+            } else {
+                sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
+            }
             
             // Get encryption key
             const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
@@ -837,6 +1007,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('image', uploadedImageFile);
                 formData.append('sbox_id', sboxId);
                 formData.append('key', encryptionKey);
+                
+                // If using custom S-Box, send the S-Box data
+                if (useCustomSboxForImage && customSboxData) {
+                    formData.append('custom_sbox', JSON.stringify(customSboxData));
+                }
 
                 const response = await fetch('/encrypt-image', {
                     method: 'POST',
@@ -903,8 +1078,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Use selected image encryption matrix
-            const sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
+            // Check if using custom S-Box
+            let sboxId, customSboxData;
+            if (useCustomSboxForImage && savedCustomSbox) {
+                sboxId = 'custom';
+                customSboxData = savedCustomSbox.sbox;
+            } else {
+                sboxId = selectedImageEncryptData?.id || selectedEncryptData.id;
+            }
             
             // Get encryption key
             const encryptionKey = document.getElementById('encryptionKey')?.value || 'cryptography2024';
@@ -923,6 +1104,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('image', uploadedImageFile);
                 formData.append('sbox_id', sboxId);
                 formData.append('key', encryptionKey);
+                
+                // If using custom S-Box, send the S-Box data
+                if (useCustomSboxForImage && customSboxData) {
+                    formData.append('custom_sbox', JSON.stringify(customSboxData));
+                }
 
                 const response = await fetch('/decrypt-image', {
                     method: 'POST',
@@ -1110,6 +1296,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Store uploaded S-Box
                 uploadedCustomSbox = data;
+                
+                // Save to localStorage for use in encryption
+                const customSboxForStorage = {
+                    name: document.getElementById('customSboxName')?.value || 'Custom S-Box',
+                    sbox: data.sbox,
+                    metrics: data.metrics,
+                    uploadedAt: new Date().toISOString()
+                };
+                saveCustomSboxToLocalStorage(customSboxForStorage);
+                savedCustomSbox = customSboxForStorage;
+                
+                // Update selectors to include custom S-Box option
+                updateSelectorsWithCustomSbox();
 
                 // Show results section
                 customSboxResults.style.display = 'block';
@@ -1238,6 +1437,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Scroll to metrics
             metricsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
+    // Save Custom S-Box Button
+    const saveCustomSboxBtn = document.getElementById('saveCustomSboxBtn');
+    if (saveCustomSboxBtn) {
+        saveCustomSboxBtn.addEventListener('click', () => {
+            if (!uploadedCustomSbox) {
+                alert('Please upload an S-Box file first!');
+                return;
+            }
+
+            const customName = document.getElementById('customSboxName')?.value || 'Custom S-Box';
+            
+            const customSboxForStorage = {
+                name: customName,
+                sbox: uploadedCustomSbox.sbox,
+                metrics: uploadedCustomSbox.metrics,
+                uploadedAt: new Date().toISOString()
+            };
+            
+            if (saveCustomSboxToLocalStorage(customSboxForStorage)) {
+                savedCustomSbox = customSboxForStorage;
+                updateSelectorsWithCustomSbox();
+                
+                // Visual feedback
+                saveCustomSboxBtn.innerHTML = '<i class="fas fa-check"></i> Tersimpan!';
+                saveCustomSboxBtn.classList.remove('from-blue-600', 'to-indigo-600');
+                saveCustomSboxBtn.classList.add('from-emerald-600', 'to-teal-600');
+                
+                setTimeout(() => {
+                    saveCustomSboxBtn.innerHTML = '<i class="fas fa-save"></i> Simpan untuk Enkripsi';
+                    saveCustomSboxBtn.classList.remove('from-emerald-600', 'to-teal-600');
+                    saveCustomSboxBtn.classList.add('from-blue-600', 'to-indigo-600');
+                }, 2000);
+            } else {
+                alert('Gagal menyimpan Custom S-Box. Coba lagi.');
+            }
+        });
+    }
+
+    // Clear Custom S-Box Button
+    const clearCustomSboxBtn = document.getElementById('clearCustomSboxBtn');
+    if (clearCustomSboxBtn) {
+        clearCustomSboxBtn.addEventListener('click', () => {
+            if (confirm('Hapus Custom S-Box dari browser? S-Box tidak akan tersedia untuk enkripsi.')) {
+                clearCustomSboxFromLocalStorage();
+                savedCustomSbox = null;
+                useCustomSboxForText = false;
+                useCustomSboxForImage = false;
+                
+                // Remove custom option from selectors
+                document.querySelectorAll('optgroup[data-custom="true"]').forEach(el => el.remove());
+                
+                // Reset selectors to first option
+                if (els.textEncryptSelector) {
+                    els.textEncryptSelector.value = '0';
+                    selectedTextEncryptData = candidatesData[0];
+                }
+                if (els.imageEncryptSelector) {
+                    els.imageEncryptSelector.value = '0';
+                    selectedImageEncryptData = candidatesData[0];
+                }
+                
+                // Visual feedback
+                clearCustomSboxBtn.innerHTML = '<i class="fas fa-check"></i> Dihapus!';
+                setTimeout(() => {
+                    clearCustomSboxBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Hapus Custom S-Box dari Browser';
+                }, 2000);
+                
+                // Show toast
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3';
+                toast.innerHTML = '<i class="fas fa-trash-alt"></i><span>Custom S-Box dihapus dari browser</span>';
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.3s';
+                    setTimeout(() => toast.remove(), 300);
+                }, 2000);
+            }
         });
     }
 

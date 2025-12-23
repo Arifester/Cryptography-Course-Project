@@ -403,15 +403,24 @@ def encrypt_image_route():
         file = request.files['image']
         sbox_id = request.form.get('sbox_id', 'AES_STD')
         encryption_key = request.form.get('key', 'cryptography2024')  # Get encryption key
+        custom_sbox_json = request.form.get('custom_sbox')  # Custom S-Box from localStorage
         
         # Load image
         img = Image.open(file.stream)
         img_array = np.array(img)
         
-        # Get S-Box
-        sbox = get_sbox(sbox_id)
-        if not sbox:
-            return jsonify({'error': 'S-Box not found'}), 400
+        # Get S-Box (custom or from database)
+        if sbox_id == 'custom' and custom_sbox_json:
+            try:
+                sbox = json.loads(custom_sbox_json)
+                if not isinstance(sbox, list) or len(sbox) != 256:
+                    return jsonify({'error': 'Invalid custom S-Box format'}), 400
+            except json.JSONDecodeError:
+                return jsonify({'error': 'Failed to parse custom S-Box'}), 400
+        else:
+            sbox = get_sbox(sbox_id)
+            if not sbox:
+                return jsonify({'error': 'S-Box not found'}), 400
         
         # Encrypt with enhanced method
         encrypted = encrypt_image(img_array, sbox, encryption_key)
@@ -477,15 +486,24 @@ def decrypt_image_route():
         file = request.files['image']
         sbox_id = request.form.get('sbox_id', 'AES_STD')
         encryption_key = request.form.get('key', 'cryptography2024')  # Get encryption key
+        custom_sbox_json = request.form.get('custom_sbox')  # Custom S-Box from localStorage
         
         # Load image
         img = Image.open(file.stream)
         img_array = np.array(img)
         
-        # Get S-Box
-        sbox = get_sbox(sbox_id)
-        if not sbox:
-            return jsonify({'error': 'S-Box not found'}), 400
+        # Get S-Box (custom or from database)
+        if sbox_id == 'custom' and custom_sbox_json:
+            try:
+                sbox = json.loads(custom_sbox_json)
+                if not isinstance(sbox, list) or len(sbox) != 256:
+                    return jsonify({'error': 'Invalid custom S-Box format'}), 400
+            except json.JSONDecodeError:
+                return jsonify({'error': 'Failed to parse custom S-Box'}), 400
+        else:
+            sbox = get_sbox(sbox_id)
+            if not sbox:
+                return jsonify({'error': 'S-Box not found'}), 400
         
         # Decrypt with enhanced method
         decrypted = decrypt_image(img_array, sbox, encryption_key)
