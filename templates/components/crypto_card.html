@@ -83,10 +83,16 @@
         <div class="relative">
             <div class="flex items-center justify-between mb-1.5">
                 <label class="text-xs text-slate-400" id="outputLabel">Output</label>
-                <button id="downloadCipherBtn" class="px-2 py-1 text-xs bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/50 text-amber-300 rounded transition-all flex items-center gap-1" style="display: none;">
-                    <i class="fas fa-download text-xs"></i>
-                    Download
-                </button>
+                <div class="flex items-center gap-2">
+                    <button id="copyCipherBtn" class="px-2 py-1 text-xs bg-cyan-600/20 hover:bg-cyan-600/40 border border-cyan-500/50 text-cyan-300 rounded transition-all flex items-center gap-1" style="display: none;">
+                        <i class="fas fa-copy text-xs"></i>
+                        Copy
+                    </button>
+                    <button id="downloadCipherBtn" class="px-2 py-1 text-xs bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/50 text-amber-300 rounded transition-all flex items-center gap-1" style="display: none;">
+                        <i class="fas fa-download text-xs"></i>
+                        Download
+                    </button>
+                </div>
             </div>
             <div id="outputResult" class="w-full p-3 min-h-[80px] bg-slate-800/50 border border-slate-600 rounded-lg font-mono text-sm break-all flex flex-wrap items-start content-start">
                 <span class="text-slate-500 italic">Hasil akan muncul di sini...</span>

@@ -393,6 +393,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Helper function to escape HTML special characters
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function doCrypto() {
         // This function is now deprecated - using async API calls instead
         // Keep for backward compatibility but show placeholder text
@@ -447,8 +454,12 @@ document.addEventListener('DOMContentLoaded', () => {
             els.outputLabel.textContent = 'Ciphertext (Hex)';
         }
         
-        // Show download button
+        // Show copy and download buttons
+        const copyBtn = document.getElementById('copyCipherBtn');
         const downloadBtn = document.getElementById('downloadCipherBtn');
+        if (copyBtn) {
+            copyBtn.style.display = 'flex';
+        }
         if (downloadBtn) {
             downloadBtn.style.display = 'flex';
         }
@@ -475,6 +486,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hexDisplay = cipherHex.match(/.{2}/g).map(b => 
                     `<span class="inline-block px-1 py-0.5 bg-amber-500/10 text-amber-300 rounded mx-0.5">${b}</span>`
                 ).join('');
+                
+                // Store pure hex and original length for copy/download
+                window.lastCipherHex = cipherHex;
+                window.lastOriginalLength = data.original_length;
+                window.lastDecryptedText = null; // Clear decrypted text since we're showing cipher
                 
                 els.outCipher.innerHTML = hexDisplay;
                 
@@ -506,9 +522,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Enhanced Text Decryption using API
     async function decryptTextEnhanced() {
         // Get input - check if it's hex ciphertext format
-        const inputText = els.inputPlain?.value?.trim();
+        let inputText = els.inputPlain?.value?.trim();
         const cipherBytesStr = document.getElementById('cipherBytesData')?.value;
-        const originalLength = parseInt(document.getElementById('originalLengthData')?.value) || null;
+        let originalLength = parseInt(document.getElementById('originalLengthData')?.value) || null;
         
         if (!inputText) {
             alert('Masukkan ciphertext hex untuk didekripsi!');
@@ -518,6 +534,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let cipherBytes = null;
         let cipherHex = null;
         let isHexInput = false;
+        
+        // Check for new format with LENGTH header (from downloaded files)
+        // Format: "LENGTH:123\nHEX:A1B2C3..."
+        if (inputText.startsWith('LENGTH:')) {
+            const lines = inputText.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('LENGTH:')) {
+                    originalLength = parseInt(line.replace('LENGTH:', '').trim());
+                } else if (line.startsWith('HEX:')) {
+                    inputText = line.replace('HEX:', '').trim();
+                }
+            }
+        }
         
         // Try to parse as hex ciphertext
         const cleanedInput = inputText.replace(/[\s\n\r]/g, '').toUpperCase();
@@ -571,10 +600,14 @@ document.addEventListener('DOMContentLoaded', () => {
             els.outputLabel.textContent = 'Decrypted Plaintext';
         }
         
-        // Hide download button for decryption result
+        // Hide download button for decryption result, show copy
         const downloadBtn = document.getElementById('downloadCipherBtn');
+        const copyBtn = document.getElementById('copyCipherBtn');
         if (downloadBtn) {
             downloadBtn.style.display = 'none';
+        }
+        if (copyBtn) {
+            copyBtn.style.display = 'flex';
         }
         
         try {
@@ -582,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cipher_bytes: cipherBytes,
                 sbox_id: sboxId,
                 key: encryptionKey,
+                original_length: originalLength,  // Send original length for proper padding removal
                 custom_sbox: customSboxData || null
             };
             
@@ -596,7 +630,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (data.success) {
-                els.outDec.innerHTML = `<span class="text-emerald-300 text-base">${data.plaintext}</span>`;
+                // Store for copy functionality
+                window.lastDecryptedText = data.plaintext;
+                window.lastCipherHex = null; // Clear cipher hex since we're showing plaintext
+                
+                // Escape HTML to prevent XSS and display special chars properly
+                const escapedPlaintext = escapeHtml(data.plaintext);
+                
+                els.outDec.innerHTML = `<span class="text-emerald-300 text-base whitespace-pre-wrap">${escapedPlaintext}</span>`;
                 els.outDec.innerHTML += `<div class="mt-2 text-xs text-emerald-400"><i class="fas fa-check-circle mr-1"></i>Decryption successful!</div>`;
             } else {
                 alert('Decryption failed: ' + data.error);
@@ -881,13 +922,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Download Cipher Button
     if (els.downloadCipherBtn) {
         els.downloadCipherBtn.addEventListener('click', () => {
-            const cipherText = els.outCipher.textContent;
-            if (cipherText && cipherText !== 'Hasil enkripsi akan muncul di sini...' && cipherText !== 'Klik tombol "Encrypt Text" untuk mengenkripsi...') {
-                // Extract hex values only (remove HTML tags)
-                const hexValues = els.outCipher.innerText;
+            // Use stored pure hex (without info text)
+            const hexToDownload = window.lastCipherHex;
+            const originalLength = window.lastOriginalLength;
+            if (hexToDownload) {
+                // Include original length in file for proper decryption
+                // Format: "LENGTH:original_length\nHEX:cipher_hex"
+                const fileContent = originalLength 
+                    ? `LENGTH:${originalLength}\nHEX:${hexToDownload}`
+                    : hexToDownload;
                 
                 // Create blob and download
-                const blob = new Blob([hexValues], { type: 'text/plain' });
+                const blob = new Blob([fileContent], { type: 'text/plain' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -904,6 +950,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     els.downloadCipherBtn.innerHTML = '<i class="fas fa-download text-xs"></i> Download';
                     els.downloadCipherBtn.classList.remove('bg-emerald-500/20', 'border-emerald-500/50');
                 }, 2000);
+            } else {
+                alert('Tidak ada ciphertext untuk didownload. Encrypt text terlebih dahulu.');
+            }
+        });
+    }
+    
+    // Copy Cipher Button
+    const copyCipherBtn = document.getElementById('copyCipherBtn');
+    if (copyCipherBtn) {
+        copyCipherBtn.addEventListener('click', async () => {
+            // Check if we have decrypted text or cipher hex to copy
+            const textToCopy = window.lastDecryptedText || window.lastCipherHex;
+            const isDecrypted = !!window.lastDecryptedText;
+            
+            if (textToCopy) {
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    
+                    // Show visual feedback
+                    copyCipherBtn.innerHTML = '<i class="fas fa-check text-xs"></i> Copied!';
+                    copyCipherBtn.classList.remove('bg-cyan-600/20', 'border-cyan-500/50', 'text-cyan-300');
+                    copyCipherBtn.classList.add('bg-emerald-500/20', 'border-emerald-500/50', 'text-emerald-300');
+                    
+                    setTimeout(() => {
+                        copyCipherBtn.innerHTML = '<i class="fas fa-copy text-xs"></i> Copy';
+                        copyCipherBtn.classList.remove('bg-emerald-500/20', 'border-emerald-500/50', 'text-emerald-300');
+                        copyCipherBtn.classList.add('bg-cyan-600/20', 'border-cyan-500/50', 'text-cyan-300');
+                    }, 2000);
+                } catch (err) {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textToCopy;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    copyCipherBtn.innerHTML = '<i class="fas fa-check text-xs"></i> Copied!';
+                    setTimeout(() => {
+                        copyCipherBtn.innerHTML = '<i class="fas fa-copy text-xs"></i> Copy';
+                    }, 2000);
+                }
+            } else {
+                alert('Tidak ada text untuk dicopy. Encrypt/Decrypt text terlebih dahulu.');
             }
         });
     }
@@ -2016,5 +2106,191 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Call this when custom S-Box is uploaded
     populateCompareSboxSelector();
-});
 
+    // ============================================
+    // SERVER STATUS MONITORING (On-Demand)
+    // ============================================
+    
+    const serverStatusModal = document.getElementById('serverStatusModal');
+    const serverStatusBtn = document.getElementById('serverStatusBtn');
+    const serverStatusBackdrop = document.getElementById('serverStatusBackdrop');
+    const closeStatusBtn = document.getElementById('closeStatusBtn');
+    const refreshStatusBtn = document.getElementById('refreshStatusBtn');
+    const statusLoading = document.getElementById('statusLoading');
+    const statusContent = document.getElementById('statusContent');
+    
+    let statusRefreshInterval = null;
+    
+    // Open modal
+    if (serverStatusBtn) {
+        serverStatusBtn.addEventListener('click', () => {
+            serverStatusModal.classList.remove('hidden');
+            fetchServerStatus();
+            // Auto-refresh while modal is open (every 3 seconds)
+            statusRefreshInterval = setInterval(fetchServerStatus, 3000);
+        });
+    }
+    
+    // Close modal
+    function closeStatusModal() {
+        serverStatusModal.classList.add('hidden');
+        // Stop auto-refresh when modal is closed
+        if (statusRefreshInterval) {
+            clearInterval(statusRefreshInterval);
+            statusRefreshInterval = null;
+        }
+    }
+    
+    if (closeStatusBtn) {
+        closeStatusBtn.addEventListener('click', closeStatusModal);
+    }
+    
+    if (serverStatusBackdrop) {
+        serverStatusBackdrop.addEventListener('click', closeStatusModal);
+    }
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && serverStatusModal && !serverStatusModal.classList.contains('hidden')) {
+            closeStatusModal();
+        }
+    });
+    
+    // Manual refresh button
+    if (refreshStatusBtn) {
+        refreshStatusBtn.addEventListener('click', () => {
+            // Spin animation
+            refreshStatusBtn.querySelector('i').classList.add('fa-spin');
+            fetchServerStatus().then(() => {
+                setTimeout(() => {
+                    refreshStatusBtn.querySelector('i').classList.remove('fa-spin');
+                }, 500);
+            });
+        });
+    }
+    
+    // Fetch and update server status
+    async function fetchServerStatus() {
+        try {
+            const response = await fetch('/server-status');
+            const data = await response.json();
+            
+            if (data.success) {
+                // Hide loading, show content
+                if (statusLoading) statusLoading.classList.add('hidden');
+                if (statusContent) statusContent.classList.remove('hidden');
+                
+                updateServerStatusUI(data);
+                
+                // Update navbar indicator
+                const navIndicator = document.getElementById('navStatusIndicator');
+                if (navIndicator) {
+                    navIndicator.classList.remove('bg-red-400');
+                    navIndicator.classList.add('bg-emerald-400');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch server status:', error);
+            // Show connection error
+            const statusIndicator = document.getElementById('statusIndicator');
+            const navIndicator = document.getElementById('navStatusIndicator');
+            if (statusIndicator) {
+                statusIndicator.classList.remove('bg-emerald-400');
+                statusIndicator.classList.add('bg-red-400');
+            }
+            if (navIndicator) {
+                navIndicator.classList.remove('bg-emerald-400');
+                navIndicator.classList.add('bg-red-400');
+            }
+        }
+    }
+    
+    function updateServerStatusUI(data) {
+        // Status indicator
+        const statusIndicator = document.getElementById('statusIndicator');
+        if (statusIndicator) {
+            statusIndicator.classList.remove('bg-red-400');
+            statusIndicator.classList.add('bg-emerald-400');
+        }
+        
+        // Last update time
+        const lastUpdate = document.getElementById('lastUpdate');
+        if (lastUpdate) {
+            const now = new Date();
+            lastUpdate.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        
+        // System info
+        const hostname = document.getElementById('hostname');
+        const platform = document.getElementById('platform');
+        const uptime = document.getElementById('uptime');
+        if (hostname) hostname.textContent = data.system.hostname;
+        if (platform) platform.textContent = `${data.system.platform} • Python ${data.system.python_version}`;
+        if (uptime) uptime.textContent = `↑ ${data.system.uptime}`;
+        
+        // CPU
+        const cpuPercent = document.getElementById('cpuPercent');
+        const cpuBar = document.getElementById('cpuBar');
+        const cpuInfo = document.getElementById('cpuInfo');
+        if (cpuPercent) cpuPercent.textContent = `${data.cpu.usage_percent}%`;
+        if (cpuBar) cpuBar.style.width = `${data.cpu.usage_percent}%`;
+        if (cpuInfo) cpuInfo.textContent = `${data.cpu.cores} cores @ ${data.cpu.frequency_mhz} MHz`;
+        
+        // RAM
+        const ramPercent = document.getElementById('ramPercent');
+        const ramBar = document.getElementById('ramBar');
+        const ramInfo = document.getElementById('ramInfo');
+        if (ramPercent) ramPercent.textContent = `${data.memory.usage_percent}%`;
+        if (ramBar) ramBar.style.width = `${data.memory.usage_percent}%`;
+        if (ramInfo) ramInfo.textContent = `${data.memory.used_gb} / ${data.memory.total_gb} GB`;
+        
+        // Disk
+        const diskPercent = document.getElementById('diskPercent');
+        const diskBar = document.getElementById('diskBar');
+        const diskInfo = document.getElementById('diskInfo');
+        if (diskPercent) diskPercent.textContent = `${data.disk.usage_percent}%`;
+        if (diskBar) diskBar.style.width = `${data.disk.usage_percent}%`;
+        if (diskInfo) diskInfo.textContent = `${data.disk.used_gb} / ${data.disk.total_gb} GB`;
+        
+        // Current operation
+        const operationIcon = document.getElementById('operationIcon');
+        const currentOperation = document.getElementById('currentOperation');
+        if (operationIcon && currentOperation) {
+            const op = data.current_operation;
+            currentOperation.textContent = op.replace('_', ' ');
+            
+            if (op === 'idle') {
+                operationIcon.className = 'fas fa-check-circle text-emerald-400';
+                currentOperation.className = 'text-emerald-400 font-medium capitalize';
+            } else if (op.includes('encrypt')) {
+                operationIcon.className = 'fas fa-lock text-amber-400 animate-pulse';
+                currentOperation.className = 'text-amber-400 font-medium capitalize';
+            } else if (op.includes('decrypt')) {
+                operationIcon.className = 'fas fa-unlock text-cyan-400 animate-pulse';
+                currentOperation.className = 'text-cyan-400 font-medium capitalize';
+            }
+        }
+        
+        // Operations counter
+        const opEncText = document.getElementById('opEncText');
+        const opDecText = document.getElementById('opDecText');
+        const opEncImg = document.getElementById('opEncImg');
+        const opDecImg = document.getElementById('opDecImg');
+        if (opEncText) opEncText.textContent = data.operations.encrypt_text || 0;
+        if (opDecText) opDecText.textContent = data.operations.decrypt_text || 0;
+        if (opEncImg) opEncImg.textContent = data.operations.encrypt_image || 0;
+        if (opDecImg) opDecImg.textContent = data.operations.decrypt_image || 0;
+        
+        // Flask process
+        const flaskMemory = document.getElementById('flaskMemory');
+        const flaskCpu = document.getElementById('flaskCpu');
+        if (flaskMemory) flaskMemory.textContent = `${data.flask_process.memory_mb} MB`;
+        if (flaskCpu) flaskCpu.textContent = `${data.flask_process.cpu_percent}%`;
+        
+        // Network I/O
+        const netSent = document.getElementById('netSent');
+        const netRecv = document.getElementById('netRecv');
+        if (netSent) netSent.innerHTML = `<i class="fas fa-arrow-up text-[8px] mr-1"></i>${data.network.bytes_sent_mb} MB`;
+        if (netRecv) netRecv.innerHTML = `<i class="fas fa-arrow-down text-[8px] mr-1"></i>${data.network.bytes_recv_mb} MB`;
+    }
+});

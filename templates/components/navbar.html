@@ -21,7 +21,164 @@
                 </div>
             </div>
 
-
+            <!-- Right Side: Server Status Button -->
+            <div class="flex items-center gap-3">
+                <button id="serverStatusBtn" class="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 hover:border-slate-600 rounded-xl text-sm text-slate-300 hover:text-white transition-all" title="Server Status">
+                    <div id="navStatusIndicator" class="w-2 h-2 bg-emerald-400 rounded-full"></div>
+                    <i class="fas fa-server text-xs"></i>
+                    <span class="hidden sm:inline">Status</span>
+                </button>
+            </div>
         </div>
     </div>
 </nav>
+
+<!-- Server Status Modal/Popup (Hidden by default) -->
+<div id="serverStatusModal" class="fixed inset-0 z-[100] hidden">
+    <!-- Backdrop -->
+    <div id="serverStatusBackdrop" class="absolute inset-0 bg-black/30"></div>
+    
+    <!-- Modal Content -->
+    <div class="absolute top-20 right-4 sm:right-8 w-80 sm:w-96 animate-fade-in">
+        <div id="serverStatusPanel" class="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="px-4 py-3 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border-b border-slate-700/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div id="statusIndicator" class="w-2.5 h-2.5 bg-emerald-400 rounded-full"></div>
+                        <span class="text-sm font-semibold text-white">Server Status</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="refreshStatusBtn" class="text-slate-400 hover:text-white transition-colors" title="Refresh">
+                            <i class="fas fa-sync-alt text-xs"></i>
+                        </button>
+                        <span id="lastUpdate" class="text-xs text-slate-500">--</span>
+                        <button id="closeStatusBtn" class="text-slate-400 hover:text-white transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Body -->
+            <div class="p-4 space-y-3 text-xs">
+                <!-- Loading State -->
+                <div id="statusLoading" class="flex items-center justify-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-indigo-400"></i>
+                </div>
+                
+                <!-- Status Content (hidden initially) -->
+                <div id="statusContent" class="space-y-3 hidden">
+                    <!-- System Info -->
+                    <div class="flex items-center gap-3 p-2.5 bg-slate-800/50 rounded-xl">
+                        <div class="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-server text-indigo-400"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div id="hostname" class="text-white font-medium truncate">--</div>
+                            <div id="platform" class="text-slate-500 text-[10px] truncate">--</div>
+                        </div>
+                        <div id="uptime" class="text-slate-400 text-[10px] whitespace-nowrap">--</div>
+                    </div>
+                    
+                    <!-- CPU & RAM Row -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <!-- CPU -->
+                        <div class="p-2.5 bg-slate-800/50 rounded-xl">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-slate-400">CPU</span>
+                                <span id="cpuPercent" class="text-cyan-400 font-mono font-bold">--%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="cpuBar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div id="cpuInfo" class="text-[10px] text-slate-500 mt-1">-- cores</div>
+                        </div>
+                        
+                        <!-- RAM -->
+                        <div class="p-2.5 bg-slate-800/50 rounded-xl">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-slate-400">RAM</span>
+                                <span id="ramPercent" class="text-purple-400 font-mono font-bold">--%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                <div id="ramBar" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <div id="ramInfo" class="text-[10px] text-slate-500 mt-1">-- / -- GB</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Disk -->
+                    <div class="p-2.5 bg-slate-800/50 rounded-xl">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-hdd text-amber-400"></i>
+                                <span class="text-slate-400">Disk</span>
+                            </div>
+                            <span id="diskPercent" class="text-amber-400 font-mono font-bold">--%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                            <div id="diskBar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <div id="diskInfo" class="text-[10px] text-slate-500 mt-1">-- / -- GB</div>
+                    </div>
+                    
+                    <!-- Current Operation -->
+                    <div class="p-2.5 bg-slate-800/50 rounded-xl">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i id="operationIcon" class="fas fa-check-circle text-emerald-400"></i>
+                                <span class="text-slate-400">Status</span>
+                            </div>
+                            <span id="currentOperation" class="text-emerald-400 font-medium capitalize">Idle</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Operations Counter -->
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <div class="p-2 bg-slate-800/50 rounded-lg text-center">
+                            <div id="opEncText" class="text-white font-mono font-bold">0</div>
+                            <div class="text-[9px] text-slate-500">Enc Text</div>
+                        </div>
+                        <div class="p-2 bg-slate-800/50 rounded-lg text-center">
+                            <div id="opDecText" class="text-white font-mono font-bold">0</div>
+                            <div class="text-[9px] text-slate-500">Dec Text</div>
+                        </div>
+                        <div class="p-2 bg-slate-800/50 rounded-lg text-center">
+                            <div id="opEncImg" class="text-white font-mono font-bold">0</div>
+                            <div class="text-[9px] text-slate-500">Enc Img</div>
+                        </div>
+                        <div class="p-2 bg-slate-800/50 rounded-lg text-center">
+                            <div id="opDecImg" class="text-white font-mono font-bold">0</div>
+                            <div class="text-[9px] text-slate-500">Dec Img</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Flask Process -->
+                    <div class="flex items-center justify-between p-2 bg-slate-800/30 rounded-lg text-[10px]">
+                        <div class="flex items-center gap-2">
+                            <i class="fab fa-python text-yellow-400"></i>
+                            <span class="text-slate-400">Flask Process</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span id="flaskMemory" class="text-slate-300">-- MB</span>
+                            <span id="flaskCpu" class="text-slate-300">-- %</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Network -->
+                    <div class="flex items-center justify-between p-2 bg-slate-800/30 rounded-lg text-[10px]">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-network-wired text-cyan-400"></i>
+                            <span class="text-slate-400">Network I/O</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span id="netSent" class="text-emerald-300"><i class="fas fa-arrow-up text-[8px] mr-1"></i>-- MB</span>
+                            <span id="netRecv" class="text-blue-300"><i class="fas fa-arrow-down text-[8px] mr-1"></i>-- MB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

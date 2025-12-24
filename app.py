@@ -6,9 +6,25 @@ from PIL import Image
 import io
 import base64
 import hashlib
+import psutil
+import socket
+import platform
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Max 16MB upload
+
+# Server status tracking
+server_status = {
+    'current_operation': 'idle',
+    'operation_start': None,
+    'operations_count': {
+        'encrypt_text': 0,
+        'decrypt_text': 0,
+        'encrypt_image': 0,
+        'decrypt_image': 0
+    }
+}
 
 def load_data():
     filename = 'sbox_data_full.json'
@@ -396,6 +412,10 @@ def index():
 @app.route('/encrypt-image', methods=['POST'])
 def encrypt_image_route():
     """Encrypt uploaded image with enhanced encryption"""
+    global server_status
+    server_status['current_operation'] = 'encrypt_image'
+    server_status['operations_count']['encrypt_image'] += 1
+    
     try:
         if 'image' not in request.files:
             return jsonify({'error': 'No image uploaded'}), 400
@@ -475,10 +495,16 @@ def encrypt_image_route():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        server_status['current_operation'] = 'idle'
 
 @app.route('/decrypt-image', methods=['POST'])
 def decrypt_image_route():
     """Decrypt uploaded encrypted image"""
+    global server_status
+    server_status['current_operation'] = 'decrypt_image'
+    server_status['operations_count']['decrypt_image'] += 1
+    
     try:
         if 'image' not in request.files:
             return jsonify({'error': 'No image uploaded'}), 400
@@ -531,6 +557,8 @@ def decrypt_image_route():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        server_status['current_operation'] = 'idle'
 
 @app.route('/team-photo/<filename>')
 def team_photo(filename):
@@ -870,37 +898,40 @@ def estimate_nonlinearity(sbox):
 
 # ============================================
 # ENHANCED TEXT ENCRYPTION WITH PROPER AES-LIKE OPERATIONS
+# Consistent with image encryption algorithm
 # ============================================
 
 def encrypt_text_enhanced(plaintext, sbox, key="cryptography2024"):
     """
     Enhanced text encryption with confusion and diffusion
+    CONSISTENT WITH IMAGE ENCRYPTION ALGORITHM
     
-    Steps:
+    Steps (same as image encryption):
     1. Generate seed from key
-    2. Convert text to bytes
-    3. Pad to multiple of 16 bytes (AES-like block)
-    4. For each round:
-       a. S-Box substitution (confusion)
-       b. XOR with key stream (diffusion)
-       c. Permutation within blocks
+    2. Convert text to bytes with PKCS7 padding
+    3. For each round:
+       a. Block permutation (diffusion - position scrambling)
+       b. S-Box substitution (confusion)
+       c. XOR with key stream (diffusion)
        d. CBC-like chaining
-    5. Return encrypted bytes as hex
+       e. Final S-Box after chaining
+    4. Return encrypted bytes
     """
     # Generate seed from key
     key_hash = hashlib.sha256(key.encode()).hexdigest()
     seed = int(key_hash[:8], 16) / (16**8)
     seed = max(0.1, min(0.9, seed))
     
-    # Convert to bytes
-    data = [ord(c) % 256 for c in plaintext]
+    # Convert to bytes using UTF-8 encoding (properly handles all characters)
+    text_bytes = plaintext.encode('utf-8')
+    data = list(text_bytes)
     
-    # Pad to multiple of 16 (AES block size)
+    # Pad to multiple of 16 (AES block size) with PKCS7
     original_length = len(data)
     padding_length = (16 - (len(data) % 16)) % 16
     if padding_length == 0:
         padding_length = 16  # Always add padding
-    data.extend([padding_length] * padding_length)  # PKCS7 padding
+    data.extend([padding_length] * padding_length)
     
     data = np.array(data, dtype=np.uint8)
     length = len(data)
@@ -910,31 +941,23 @@ def encrypt_text_enhanced(plaintext, sbox, key="cryptography2024"):
     for round_num in range(num_rounds):
         round_seed = (seed + round_num * 0.1) % 0.9 + 0.05
         
-        # Step 1: S-Box Substitution (Confusion)
+        # Step 1: Block Permutation (Diffusion) - SAME ORDER AS IMAGE
+        perm = generate_chaotic_sequence(round_seed, length)
+        perm_indices = np.argsort(perm[:length])
+        data = data[perm_indices]
+        
+        # Step 2: S-Box Substitution (Confusion)
         data = np.array([sbox[b] for b in data], dtype=np.uint8)
         
-        # Step 2: XOR with Key Stream (Diffusion)
+        # Step 3: XOR with Key Stream (Diffusion)
         key_stream = generate_key_stream(sbox, round_seed, length)
         data = np.bitwise_xor(data, key_stream)
-        
-        # Step 3: Block Permutation (Diffusion)
-        # Permute within 16-byte blocks
-        perm = generate_chaotic_sequence(round_seed, 16)
-        perm_indices = np.argsort(perm)
-        
-        permuted = np.zeros_like(data)
-        num_blocks = length // 16
-        for block in range(num_blocks):
-            start = block * 16
-            for i in range(16):
-                permuted[start + perm_indices[i]] = data[start + i]
-        data = permuted
         
         # Step 4: CBC-like Chaining
         for i in range(1, length):
             data[i] = data[i] ^ data[i-1]
         
-        # Step 5: Final S-Box
+        # Step 5: Final S-Box after chaining
         data = np.array([sbox[b] for b in data], dtype=np.uint8)
     
     return data.tolist(), original_length
@@ -942,6 +965,7 @@ def encrypt_text_enhanced(plaintext, sbox, key="cryptography2024"):
 def decrypt_text_enhanced(cipher_bytes, sbox, key="cryptography2024", original_length=None):
     """
     Decrypt text encrypted with enhanced method
+    CONSISTENT WITH IMAGE DECRYPTION ALGORITHM
     Reverse all operations in reverse order
     """
     inv_sbox = generate_inverse_sbox(sbox)
@@ -968,44 +992,46 @@ def decrypt_text_enhanced(cipher_bytes, sbox, key="cryptography2024", original_l
         for i in range(length - 1, 0, -1):
             data[i] = temp[i] ^ temp[i-1]
         
-        # Reverse Step 3: Inverse block permutation
-        perm = generate_chaotic_sequence(round_seed, 16)
-        perm_indices = np.argsort(perm)
-        inv_perm = np.argsort(perm_indices)
-        
-        permuted = np.zeros_like(data)
-        num_blocks = length // 16
-        for block in range(num_blocks):
-            start = block * 16
-            for i in range(16):
-                permuted[start + i] = data[start + perm_indices[i]]
-        data = permuted
-        
-        # Reverse Step 2: XOR with same key stream
+        # Reverse Step 3: XOR with same key stream
         key_stream = generate_key_stream(sbox, round_seed, length)
         data = np.bitwise_xor(data, key_stream)
         
-        # Reverse Step 1: Inverse S-Box
+        # Reverse Step 2: Inverse S-Box
         data = np.array([inv_sbox[b] for b in data], dtype=np.uint8)
+        
+        # Reverse Step 1: Inverse permutation
+        perm = generate_chaotic_sequence(round_seed, length)
+        perm_indices = np.argsort(perm[:length])
+        inv_perm = np.argsort(perm_indices)
+        data = data[inv_perm]
     
     # Remove PKCS7 padding
-    if original_length:
+    if original_length and original_length > 0 and original_length <= len(data):
         data = data[:original_length]
     else:
-        padding_length = data[-1]
-        if padding_length <= 16 and all(data[-padding_length:] == padding_length):
-            data = data[:-padding_length]
+        # Fallback to standard PKCS7 padding removal
+        if len(data) > 0:
+            padding_length = int(data[-1])  # Ensure it's an integer
+            if 1 <= padding_length <= 16 and len(data) >= padding_length:
+                # Verify all padding bytes are correct
+                if all(int(b) == padding_length for b in data[-padding_length:]):
+                    data = data[:-padding_length]
     
-    # Convert back to string
+    # Convert back to string using UTF-8 decoding (properly handles all characters)
     try:
-        return ''.join([chr(b) for b in data])
-    except:
-        return data.tolist()
+        return bytes(data).decode('utf-8')
+    except UnicodeDecodeError:
+        # Fallback: try to decode with replacement characters for invalid UTF-8
+        return bytes(data).decode('utf-8', errors='replace')
 
 
 @app.route('/encrypt-text', methods=['POST'])
 def encrypt_text_route():
     """Encrypt text with enhanced AES-like encryption"""
+    global server_status
+    server_status['current_operation'] = 'encrypt_text'
+    server_status['operations_count']['encrypt_text'] += 1
+    
     try:
         data = request.get_json()
         if not data:
@@ -1048,11 +1074,17 @@ def encrypt_text_route():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        server_status['current_operation'] = 'idle'
 
 
 @app.route('/decrypt-text', methods=['POST'])
 def decrypt_text_route():
     """Decrypt text with enhanced AES-like decryption"""
+    global server_status
+    server_status['current_operation'] = 'decrypt_text'
+    server_status['operations_count']['decrypt_text'] += 1
+    
     try:
         data = request.get_json()
         if not data:
@@ -1099,6 +1131,8 @@ def decrypt_text_route():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        server_status['current_operation'] = 'idle'
 
 
 def calculate_sac(sbox):
@@ -1170,6 +1204,102 @@ def calculate_dap(sbox):
         max_prob = max(max_prob, prob)
     
     return max_prob
+
+
+# ============================================
+# SERVER STATUS MONITORING
+# ============================================
+
+@app.route('/server-status', methods=['GET'])
+def get_server_status():
+    """Get real-time server status including CPU, RAM, and operation info"""
+    try:
+        # System info
+        hostname = socket.gethostname()
+        platform_info = platform.system() + " " + platform.release()
+        python_version = platform.python_version()
+        
+        # CPU info
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        cpu_count = psutil.cpu_count()
+        cpu_freq = psutil.cpu_freq()
+        cpu_freq_current = round(cpu_freq.current, 0) if cpu_freq else 0
+        
+        # Memory info
+        memory = psutil.virtual_memory()
+        ram_total = round(memory.total / (1024 ** 3), 2)  # GB
+        ram_used = round(memory.used / (1024 ** 3), 2)  # GB
+        ram_percent = memory.percent
+        ram_available = round(memory.available / (1024 ** 3), 2)  # GB
+        
+        # Disk info
+        disk = psutil.disk_usage('/')
+        disk_total = round(disk.total / (1024 ** 3), 2)  # GB
+        disk_used = round(disk.used / (1024 ** 3), 2)  # GB
+        disk_percent = disk.percent
+        
+        # Network info (bytes sent/received)
+        net_io = psutil.net_io_counters()
+        bytes_sent = round(net_io.bytes_sent / (1024 ** 2), 2)  # MB
+        bytes_recv = round(net_io.bytes_recv / (1024 ** 2), 2)  # MB
+        
+        # Process info (current Flask process)
+        process = psutil.Process(os.getpid())
+        process_memory = round(process.memory_info().rss / (1024 ** 2), 2)  # MB
+        process_cpu = process.cpu_percent(interval=0.1)
+        
+        # Uptime
+        boot_time = datetime.fromtimestamp(psutil.boot_time())
+        uptime_seconds = (datetime.now() - boot_time).total_seconds()
+        uptime_hours = int(uptime_seconds // 3600)
+        uptime_minutes = int((uptime_seconds % 3600) // 60)
+        
+        # Server status
+        status_info = {
+            'success': True,
+            'timestamp': datetime.now().isoformat(),
+            'system': {
+                'hostname': hostname,
+                'platform': platform_info,
+                'python_version': python_version,
+                'uptime': f"{uptime_hours}h {uptime_minutes}m"
+            },
+            'cpu': {
+                'usage_percent': cpu_percent,
+                'cores': cpu_count,
+                'frequency_mhz': cpu_freq_current
+            },
+            'memory': {
+                'total_gb': ram_total,
+                'used_gb': ram_used,
+                'available_gb': ram_available,
+                'usage_percent': ram_percent
+            },
+            'disk': {
+                'total_gb': disk_total,
+                'used_gb': disk_used,
+                'usage_percent': disk_percent
+            },
+            'network': {
+                'bytes_sent_mb': bytes_sent,
+                'bytes_recv_mb': bytes_recv
+            },
+            'flask_process': {
+                'memory_mb': process_memory,
+                'cpu_percent': process_cpu
+            },
+            'operations': server_status['operations_count'],
+            'current_operation': server_status['current_operation']
+        }
+        
+        return jsonify(status_info)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -3,3 +3,4 @@ numpy
 Pillow
 matplotlib
 openpyxl
+psutil
