@@ -1,3 +1,3 @@
 # Cryptography Course Project
-This repository is an AES S-Box Explorer course project that contains a web application for analyzing, modifying, and testing S-boxes in AES-128.
-The application provides interactive S-box visualization, cryptographic parameter analysis, comparison of different S-box candidates, and encryption simulations for text and images with statistical analysis.
+This repository contains a web application for a Cryptography course project that replicates research on modifying AES S-boxes to improve security.
+Built using a modular architecture with Python Flask as the backend for intensive cryptographic computation and Tailwind CSS for the modern user interface, it features image encryption simulation and real-time analysis of 10 security metrics.
